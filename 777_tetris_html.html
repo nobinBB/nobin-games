@@ -96,6 +96,8 @@
     .panel h1 { margin: 0 0 10px; font-size: 36px; }
     .panel p { margin: 0 0 20px; color: #ddddf5; line-height: 1.7; font-size: 14px; }
     button {
+      position: relative;
+      z-index: 5;
       appearance: none;
       border: 0;
       border-radius: 999px;
@@ -734,12 +736,34 @@
           e.stopPropagation();
         }
 
-        // pointerdown / touchstart / mousedown / click の二重発火対策。
         const now = performance.now();
         if (now - lastHandledAt < 120) return;
         lastHandledAt = now;
 
         handleTouchAction(button.dataset.action);
+      }
+
+      button.addEventListener("pointerdown", run, { passive: false });
+      button.addEventListener("touchstart", run, { passive: false });
+      button.addEventListener("mousedown", run);
+      button.addEventListener("click", run);
+    }
+
+    function bindActionButton(button, action) {
+      let lastHandledAt = 0;
+
+      function run(e) {
+        if (e) {
+          if (e.type.startsWith("touch") || e.pointerType === "touch") forceTouchMode();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        const now = performance.now();
+        if (now - lastHandledAt < 180) return;
+        lastHandledAt = now;
+
+        action();
       }
 
       button.addEventListener("pointerdown", run, { passive: false });
@@ -849,6 +873,7 @@
       lockedPieceCount = SPEED_UP_EVERY_LOCKS; updateSpeed(); console.assert(dropInterval < START_DROP_INTERVAL && speedLevel === 2, "speed should increase");
       console.assert(typeof handleTouchAction === "function", "touch controls handler should exist");
       console.assert(typeof bindTouchButton === "function", "touch button binder should exist");
+      console.assert(typeof bindActionButton === "function", "action button binder should exist");
       console.assert(typeof bindCanvasGestureControls === "function", "canvas gesture controls binder should exist");
       console.assert(["pc", "touch"].includes(detectInputMode()), "input mode should be pc or touch");
       const beforeMode = inputMode;
@@ -885,15 +910,25 @@
       if (e.code === "Space") hardDrop();
       draw();
     }, { passive: false });
-    pauseButton.addEventListener("click", togglePause);
-    musicButton.addEventListener("click", toggleMusic);
+    bindActionButton(pauseButton, togglePause);
+    bindActionButton(musicButton, toggleMusic);
+    bindActionButton(startButton, () => {
+      overlay.querySelector("h1").textContent = "777 TETRIS";
+      overlay.querySelector("p").innerHTML = "1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>7だけは3つ並べると消えます。";
+      startButton.textContent = "START";
+      startGame();
+    });
     document.querySelectorAll(".mobile-button").forEach(bindTouchButton);
     bindCanvasGestureControls(canvas);
     window.addEventListener("touchstart", (e) => {
-      if (e.target.closest(".game-wrap")) {
-        forceTouchMode();
-        e.preventDefault();
-      }
+      if (!e.target.closest(".game-wrap")) return;
+      forceTouchMode();
+
+      // ボタンは各ボタン専用ハンドラで処理する。
+      // ここで preventDefault すると iPad/Brave で START の click が潰れる場合がある。
+      if (e.target.closest("button")) return;
+
+      e.preventDefault();
     }, { passive: false });
 
     window.addEventListener("touchmove", (e) => {
@@ -919,12 +954,7 @@
       // iPad系ブラウザでのピンチ操作による拡大を抑える保険。
       if (gameRunning && isTouchMode()) e.preventDefault();
     });
-    startButton.addEventListener("click", () => {
-      overlay.querySelector("h1").textContent = "777 TETRIS";
-      overlay.querySelector("p").innerHTML = "1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>7だけは3つ並べると消えます。";
-      startButton.textContent = "START";
-      startGame();
-    });
+    
 
     applyInputMode();
     window.addEventListener("resize", () => applyInputMode(inputMode === "touch" ? "touch" : null));
