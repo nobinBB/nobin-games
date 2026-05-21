@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOBIN GAME BOX</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #090914;
+      --panel: rgba(255, 255, 255, 0.075);
+      --panel-strong: rgba(255, 255, 255, 0.12);
+      --line: rgba(255, 255, 255, 0.16);
+      --text: #f8f8ff;
+      --muted: #b8b8d8;
+      --accent: #ffe45e;
+      --accent-2: #79f2ff;
+      --accent-3: #ff78c8;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--bg);
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(121, 242, 255, 0.22), transparent 32%),
+        radial-gradient(circle at 82% 18%, rgba(255, 120, 200, 0.18), transparent 30%),
+        radial-gradient(circle at 50% 85%, rgba(255, 228, 94, 0.12), transparent 36%),
+        linear-gradient(135deg, #090914 0%, #111126 48%, #080812 100%);
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 64px;
+    }
+
+    .hero {
+      position: relative;
+      padding: 34px;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.045)),
+        rgba(9, 9, 20, 0.82);
+      box-shadow: 0 28px 100px rgba(0, 0, 0, 0.42);
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      background:
+        linear-gradient(90deg, transparent, rgba(121,242,255,0.25), transparent),
+        linear-gradient(140deg, transparent, rgba(255,228,94,0.18), transparent);
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      color: #101018;
+      background: var(--accent);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(38px, 7vw, 76px);
+      line-height: 0.92;
+      letter-spacing: -0.06em;
+    }
+
+    .hero-text {
+      max-width: 640px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.85;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(90px, 1fr));
+      gap: 10px;
+      min-width: 230px;
+    }
+
+    .stat {
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-value {
+      margin-top: 4px;
+      font-size: 28px;
+      font-weight: 950;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      margin: 24px 0 18px;
+    }
+
+    .search {
+      width: 100%;
+      padding: 15px 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      color: var(--text);
+      background: rgba(255,255,255,0.08);
+      font-size: 15px;
+      outline: none;
+    }
+
+    .search::placeholder {
+      color: rgba(248,248,255,0.45);
+    }
+
+    .filter {
+      display: flex;
+      gap: 8px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.07);
+    }
+
+    .filter button {
+      border: 0;
+      border-radius: 13px;
+      padding: 10px 13px;
+      color: var(--muted);
+      background: transparent;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .filter button.active {
+      color: #101018;
+      background: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      position: relative;
+      min-height: 230px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 28px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.045)),
+        rgba(255,255,255,0.05);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.28);
+      overflow: hidden;
+      transform: translateY(0);
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, var(--card-glow), transparent 44%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255,255,255,0.28);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)),
+        rgba(255,255,255,0.07);
+    }
+
+    .card-body,
+    .card-footer {
+      position: relative;
+      z-index: 1;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      padding: 6px 9px;
+      border-radius: 999px;
+      color: #111;
+      background: var(--accent);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+    }
+
+    .badge.sub {
+      color: var(--text);
+      background: rgba(255,255,255,0.13);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .card-desc {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .play {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: #101018;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .meta {
+      color: rgba(248,248,255,0.55);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .empty {
+      display: none;
+      padding: 26px;
+      border: 1px dashed rgba(255,255,255,0.22);
+      border-radius: 24px;
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255,255,255,0.055);
+    }
+
+    .empty.show {
+      display: block;
+    }
+
+    @media (max-width: 700px) {
+      .page {
+        width: min(100% - 20px, 1120px);
+        padding: 18px 0 36px;
+      }
+
+      .hero {
+        padding: 24px;
+        border-radius: 26px;
+      }
+
+      .hero-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+        min-width: 0;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .filter {
+        overflow-x: auto;
+      }
+
+      .filter button {
+        white-space: nowrap;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-inner">
+        <div>
+          <div class="eyebrow">GAME PORTAL</div>
+          <h1>NOBIN<br>GAME BOX</h1>
+          <p class="hero-text">
+            自作ブラウザゲームをまとめるトップページ。ゲームが増えたら、JavaScript内の games 配列に1件追加するだけでカードが自動で増えます。
+          </p>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">GAMES</div>
+            <div id="gameCount" class="stat-value">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">READY</div>
+            <div id="readyCount" class="stat-value">0</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="game filters">
+      <input id="searchInput" class="search" type="search" placeholder="ゲーム名・ジャンルで検索">
+      <div id="filterBar" class="filter"></div>
+    </section>
+
+    <section id="gameGrid" class="grid" aria-label="game list"></section>
+    <div id="emptyMessage" class="empty">該当するゲームがありません。</div>
+  </main>
+
+  <script>
+    "use strict";
+
+    // ゲームを増やすときは、この配列に1件追加するだけ。
+    // href はGitHub Pages上の配置に合わせる。
+    // 例：/games/777-tetris/index.html に置くなら href: "./games/777-tetris/"
+    const games = [
+      {
+        id: "777-tetris",
+        title: "777 TETRIS",
+        description: "1〜7の数字ブロックを落として、縦横の合計7を作る落ち物パズル。7は3つ揃えて消す特別ルール。",
+        href: "./777_tetris_html.html",
+        status: "READY",
+        genre: "Puzzle",
+        tags: ["落ち物", "数字", "iPad対応"],
+        accent: "rgba(255, 228, 94, 0.34)",
+        updated: "v1"
+      }
+
+      // 追加例：
+      // ,{
+      //   id: "monster-rts",
+      //   title: "MONSTER RTS",
+      //   description: "小さい3Dモンスターを動かすRTSプロトタイプ。",
+      //   href: "./games/monster-rts/",
+      //   status: "WIP",
+      //   genre: "Strategy",
+      //   tags: ["RTS", "3D", "Monster"],
+      //   accent: "rgba(121, 242, 255, 0.30)",
+      //   updated: "prototype"
+      // }
+    ];
+
+    const gameGrid = document.getElementById("gameGrid");
+    const searchInput = document.getElementById("searchInput");
+    const filterBar = document.getElementById("filterBar");
+    const emptyMessage = document.getElementById("emptyMessage");
+    const gameCount = document.getElementById("gameCount");
+    const readyCount = document.getElementById("readyCount");
+
+    let activeGenre = "ALL";
+
+    function getGenres() {
+      return ["ALL", ...Array.from(new Set(games.map(game => game.genre)))];
+    }
+
+    function normalize(value) {
+      return String(value || "").toLowerCase();
+    }
+
+    function matchesSearch(game, query) {
+      if (!query) return true;
+      const target = [
+        game.title,
+        game.description,
+        game.genre,
+        game.status,
+        ...(game.tags || [])
+      ].map(normalize).join(" ");
+      return target.includes(normalize(query));
+    }
+
+    function matchesGenre(game) {
+      return activeGenre === "ALL" || game.genre === activeGenre;
+    }
+
+    function createGameCard(game) {
+      const card = document.createElement("a");
+      card.className = "card";
+      card.href = game.href;
+      card.style.setProperty("--card-glow", game.accent || "rgba(255,255,255,0.2)");
+      card.setAttribute("aria-label", `${game.title} を開く`);
+
+      const tags = (game.tags || []).map(tag => `<span class="badge sub">${escapeHtml(tag)}</span>`).join("");
+
+      card.innerHTML = `
+        <div class="card-body">
+          <div class="badge-row">
+            <span class="badge">${escapeHtml(game.status || "READY")}</span>
+            <span class="badge sub">${escapeHtml(game.genre || "Game")}</span>
+            ${tags}
+          </div>
+          <h2 class="card-title">${escapeHtml(game.title)}</h2>
+          <p class="card-desc">${escapeHtml(game.description)}</p>
+        </div>
+        <div class="card-footer">
+          <span class="play">PLAY →</span>
+          <span class="meta">${escapeHtml(game.updated || "")}</span>
+        </div>
+      `;
+
+      return card;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderFilters() {
+      filterBar.innerHTML = "";
+      for (const genre of getGenres()) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = genre;
+        button.className = genre === activeGenre ? "active" : "";
+        button.addEventListener("click", () => {
+          activeGenre = genre;
+          renderFilters();
+          renderGames();
+        });
+        filterBar.appendChild(button);
+      }
+    }
+
+    function renderStats() {
+      gameCount.textContent = games.length;
+      readyCount.textContent = games.filter(game => game.status === "READY").length;
+    }
+
+    function renderGames() {
+      const query = searchInput.value.trim();
+      const filteredGames = games.filter(game => matchesGenre(game) && matchesSearch(game, query));
+
+      gameGrid.innerHTML = "";
+      for (const game of filteredGames) {
+        gameGrid.appendChild(createGameCard(game));
+      }
+
+      emptyMessage.classList.toggle("show", filteredGames.length === 0);
+    }
+
+    function runTests() {
+      console.assert(Array.isArray(games), "games should be an array");
+      console.assert(games.length >= 1, "at least one game should exist");
+      console.assert(games.every(game => game.id && game.title && game.href), "each game should have id, title, and href");
+      console.assert(getGenres().includes("ALL"), "genre filter should include ALL");
+      console.assert(matchesSearch(games[0], "777"), "search should find 777 TETRIS");
+      console.info("Game portal tests finished");
+    }
+
+    searchInput.addEventListener("input", renderGames);
+
+    runTests();
+    renderStats();
+    renderFilters();
+    renderGames();
+  </script>
+</body>
+</html>
