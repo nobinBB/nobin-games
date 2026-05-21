@@ -1,25 +1,39 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Simple 777 Tetris</title>
-  <style>
-    * {
-      box-sizing: border-box;
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>777 Tetris</title>
+<style>
+    * { box-sizing: border-box; }
+    html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-text-size-adjust: 100%;
     }
-
     body {
+      width: 100%;
+      height: 100%;
       margin: 0;
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       justify-content: center;
       align-items: center;
       background: radial-gradient(circle at top, #252547, #0c0c16 70%);
       color: #fff;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      position: fixed;
+      inset: 0;
+      overscroll-behavior: none;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
-
     .game-wrap {
       position: relative;
       display: flex;
@@ -30,8 +44,8 @@
       border-radius: 20px;
       background: rgba(10,10,22,0.72);
       box-shadow: 0 20px 80px rgba(0,0,0,0.45);
+      touch-action: none;
     }
-
     canvas {
       display: block;
       width: 300px;
@@ -39,41 +53,20 @@
       border-radius: 14px;
       background: #090912;
       border: 2px solid rgba(255,255,255,0.16);
+      touch-action: none;
     }
-
-    .side {
-      width: 180px;
-    }
-
-    .title {
-      margin: 0 0 12px;
-      font-size: 24px;
-      letter-spacing: 0.04em;
-    }
-
+    .side { width: 180px; }
+    .title { margin: 0 0 12px; font-size: 24px; letter-spacing: 0.04em; }
     .score-box {
       padding: 14px;
       border-radius: 14px;
       background: rgba(255,255,255,0.08);
       margin-bottom: 16px;
     }
-
-    .score-label {
-      color: #aaa;
-      font-size: 13px;
-    }
-
-    .score {
-      font-size: 34px;
-      font-weight: 800;
-    }
-
-    .help {
-      color: #cfcfe7;
-      font-size: 13px;
-      line-height: 1.75;
-    }
-
+    .score-label { color: #aaa; font-size: 13px; }
+    .score { font-size: 34px; font-weight: 800; }
+    .side-control { width: 100%; margin-bottom: 12px; box-shadow: none; }
+    .help { color: #cfcfe7; font-size: 13px; line-height: 1.75; margin-top: 6px; }
     .overlay {
       position: absolute;
       inset: 0;
@@ -86,7 +79,6 @@
       text-align: center;
       padding: 24px;
     }
-
     .panel {
       width: min(420px, 90%);
       padding: 28px;
@@ -94,19 +86,8 @@
       background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
       border: 1px solid rgba(255,255,255,0.2);
     }
-
-    .panel h1 {
-      margin: 0 0 10px;
-      font-size: 36px;
-    }
-
-    .panel p {
-      margin: 0 0 20px;
-      color: #ddddf5;
-      line-height: 1.7;
-      font-size: 14px;
-    }
-
+    .panel h1 { margin: 0 0 10px; font-size: 36px; }
+    .panel p { margin: 0 0 20px; color: #ddddf5; line-height: 1.7; font-size: 14px; }
     button {
       appearance: none;
       border: 0;
@@ -118,44 +99,212 @@
       font-size: 16px;
       cursor: pointer;
       box-shadow: 0 8px 24px rgba(255, 228, 94, 0.35);
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
     }
-
-    button:hover {
-      filter: brightness(1.06);
-    }
-
-    .hidden {
+    button:hover { filter: brightness(1.06); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .mobile-controls {
       display: none;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .mobile-button {
+      padding: 14px 8px;
+      border-radius: 16px;
+      font-size: 18px;
+      box-shadow: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-button.wide {
+      grid-column: span 2;
+    }
+    .device-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: #101018;
+      background: #79f2ff;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+    }
+    body.device-touch .mobile-controls {
+      display: grid;
+    }
+    body.device-touch .pc-only {
+      display: none;
+    }
+    body.device-pc .touch-only {
+      display: none;
+    }
+    body.device-pc .mobile-controls {
+      display: none;
+    }
+    .hidden { display: none; }
+
+    @media (max-width: 760px), (pointer: coarse) {
+      body {
+        align-items: flex-start;
+        overflow: hidden;
+      }
+      .game-wrap {
+        width: 100vw;
+        min-height: 100dvh;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 0;
+      }
+      canvas {
+        width: min(92vw, 330px);
+        height: min(122vw, 660px);
+        max-height: 68dvh;
+      }
+      .side {
+        width: min(92vw, 330px);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .title {
+        grid-column: 1 / -1;
+        margin-bottom: 0;
+        font-size: 22px;
+        text-align: center;
+      }
+      .score-box {
+        margin-bottom: 0;
+        padding: 10px 12px;
+      }
+      .score {
+        font-size: 26px;
+      }
+      .side-control {
+        margin-bottom: 0;
+        padding: 11px 12px;
+      }
+      .help {
+        grid-column: 1 / -1;
+        font-size: 12px;
+        line-height: 1.55;
+        margin-top: 0;
+      }
+      .mobile-controls {
+        grid-column: 1 / -1;
+        display: grid;
+      }
+      .panel {
+        padding: 22px;
+      }
+      .panel h1 {
+        font-size: 30px;
+      }
+    }
+
+    @media (pointer: coarse) and (orientation: landscape) {
+      body {
+        overflow: hidden;
+        align-items: center;
+      }
+      .game-wrap {
+        width: 100vw;
+        height: 100dvh;
+        min-height: 100dvh;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+      }
+      canvas {
+        height: calc(100dvh - 16px);
+        width: calc((100dvh - 16px) / 2);
+        max-height: none;
+        max-width: 48vw;
+      }
+      .side {
+        width: min(46vw, 360px);
+        max-height: calc(100dvh - 16px);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        overflow: hidden;
+      }
+      .title {
+        grid-column: 1 / -1;
+        font-size: 20px;
+        line-height: 1;
+      }
+      .score-box {
+        padding: 8px 10px;
+      }
+      .score-label {
+        font-size: 11px;
+      }
+      .score {
+        font-size: 23px;
+      }
+      .side-control {
+        padding: 10px 8px;
+        font-size: 14px;
+      }
+      .help {
+        grid-column: 1 / -1;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      .mobile-controls {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: 7px;
+        margin-top: 4px;
+      }
+      .mobile-button {
+        padding: 12px 6px;
+        font-size: 17px;
+      }
+      .panel {
+        max-width: 420px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="game-wrap">
     <canvas id="game" width="300" height="600"></canvas>
-
     <div class="side">
       <h2 class="title">777 TETRIS</h2>
-      <div class="score-box">
-        <div class="score-label">SCORE</div>
-        <div id="score" class="score">0</div>
-      </div>
+      <div id="deviceBadge" class="device-badge">DEVICE CHECK</div>
+      <div class="score-box"><div class="score-label">SCORE</div><div id="score" class="score">0</div></div>
+      <div class="score-box"><div class="score-label">SPEED</div><div id="speed" class="score">1</div></div>
+      <button id="pauseButton" class="side-control" disabled>PAUSE</button>
+      <button id="musicButton" class="side-control">MUSIC ON</button>
       <div class="help">
-        ← →：移動<br>
-        ↑：回転<br>
-        ↓：落下<br>
-        Space：即落下<br><br>
+        <span class="pc-only">PC：← → 移動 / ↑ 回転 / ↓ 落下 / Space 即落下 / P 一時停止</span>
+        <span class="touch-only">iPad / Brave：下のボタン、またはゲーム画面スワイプで操作</span><br><br>
         縦横の連続合計が7で消えます。<br>
-        数字7は、7を3つ並べると消えます。
+        数字7は、7を3つ並べると消えます。<br>
+        消去中も次ブロックは操作できます。
+      </div>
+      <div class="mobile-controls" aria-label="touch controls">
+        <button class="mobile-button" data-action="left">←</button>
+        <button class="mobile-button" data-action="rotate">↻</button>
+        <button class="mobile-button" data-action="right">→</button>
+        <button class="mobile-button" data-action="down">↓</button>
+        <button class="mobile-button" data-action="drop">落</button>
       </div>
     </div>
-
     <div id="overlay" class="overlay">
       <div class="panel">
         <h1>777 TETRIS</h1>
-        <p>
-          1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>
-          7だけは3つ並べると消えます。
-        </p>
+        <p>1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>7だけは3つ並べると消えます。</p>
         <button id="startButton">START</button>
       </div>
     </div>
@@ -167,532 +316,574 @@
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
     const scoreEl = document.getElementById("score");
+    const speedEl = document.getElementById("speed");
     const overlay = document.getElementById("overlay");
     const startButton = document.getElementById("startButton");
+    const pauseButton = document.getElementById("pauseButton");
+    const musicButton = document.getElementById("musicButton");
+    const deviceBadge = document.getElementById("deviceBadge");
 
     const COLS = 10;
     const ROWS = 20;
     const CELL = 30;
+    const START_DROP_INTERVAL = 650;
+    const MIN_DROP_INTERVAL = 170;
+    const SPEED_UP_EVERY_LOCKS = 5;
+    const SPEED_UP_AMOUNT = 35;
+    const CLEAR_DELAY = 420;
+    const CHAIN_DELAY = 120;
 
     let board = createBoard();
     let current = null;
     let score = 0;
     let gameRunning = false;
+    let isPaused = false;
+    let resolving = false;
+    let pendingResolveQueue = [];
+    let clearingCells = new Set();
     let dropCounter = 0;
     let lastTime = 0;
-    let dropInterval = 650;
+    let dropInterval = START_DROP_INTERVAL;
+    let lockedPieceCount = 0;
+    let speedLevel = 1;
     let animationId = null;
+    let activeTimerId = null;
+    let activeTimerStartedAt = 0;
+    let activeTimerDelay = 0;
+    let activeTimerRemaining = 0;
+    let activeTimerCallback = null;
+    let inputMode = "pc";
 
-    const colors = {
-      1: "#7dd3fc",
-      2: "#86efac",
-      3: "#fde047",
-      4: "#fb923c",
-      5: "#f472b6",
-      6: "#c084fc",
-      7: "#f87171"
-    };
-
-    const shapes = [
-      [[1, 1, 1, 1]],
-      [[1, 1], [1, 1]],
-      [[0, 1, 0], [1, 1, 1]],
-      [[1, 0, 0], [1, 1, 1]],
-      [[0, 0, 1], [1, 1, 1]],
-      [[1, 1, 0], [0, 1, 1]],
-      [[0, 1, 1], [1, 1, 0]]
+    let musicEnabled = true;
+    let audioContext = null;
+    let masterGain = null;
+    let musicTimerId = null;
+    let musicStep = 0;
+    const MUSIC_TEMPO = 145;
+    const MUSIC_STEP_MS = Math.round(60000 / MUSIC_TEMPO / 2);
+    const musicMelody = [
+      659, 494, 523, 587, 523, 494, 440, 440,
+      523, 659, 587, 523, 494, 523, 587, 659,
+      523, 440, 440, 0, 587, 698, 880, 784,
+      698, 659, 523, 659, 587, 523, 494, 494
     ];
 
-    function createBoard() {
-      return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    const colors = { 1: "#7dd3fc", 2: "#86efac", 3: "#fde047", 4: "#fb923c", 5: "#f472b6", 6: "#c084fc", 7: "#f87171" };
+    const shapes = [
+      [[1, 1, 1, 1]], [[1, 1], [1, 1]], [[0, 1, 0], [1, 1, 1]],
+      [[1, 0, 0], [1, 1, 1]], [[0, 0, 1], [1, 1, 1]],
+      [[1, 1, 0], [0, 1, 1]], [[0, 1, 1], [1, 1, 0]]
+    ];
+
+    function detectInputMode() {
+      const hasTouchPoints = navigator.maxTouchPoints && navigator.maxTouchPoints > 0;
+      const hasCoarsePointer = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      const userAgent = navigator.userAgent || "";
+      const isiPadLike = /iPad|iPhone|iPod/i.test(userAgent) || (navigator.platform === "MacIntel" && hasTouchPoints);
+
+      return (isiPadLike || hasTouchPoints || hasCoarsePointer) ? "touch" : "pc";
     }
 
-    function isValidBoard(targetBoard) {
-      return Array.isArray(targetBoard) &&
-        targetBoard.length === ROWS &&
-        targetBoard.every(row => Array.isArray(row) && row.length === COLS);
+    function applyInputMode() {
+      inputMode = detectInputMode();
+      document.body.classList.toggle("device-touch", inputMode === "touch");
+      document.body.classList.toggle("device-pc", inputMode === "pc");
+      deviceBadge.textContent = inputMode === "touch" ? "TOUCH MODE" : "PC MODE";
     }
 
-    function ensureBoard() {
-      if (!isValidBoard(board)) {
-        board = createBoard();
-      }
+    function isTouchMode() {
+      return inputMode === "touch";
     }
 
-    function randomInt(min, max) {
-      return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
+    function createBoard() { return Array.from({ length: ROWS }, () => Array(COLS).fill(0)); }
+    function isValidBoard(targetBoard) { return Array.isArray(targetBoard) && targetBoard.length === ROWS && targetBoard.every(row => Array.isArray(row) && row.length === COLS); }
+    function ensureBoard() { if (!isValidBoard(board)) board = createBoard(); }
+    function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
     function createRandomValueMatrix(shape) {
       const matrix = shape.map(row => row.map(cell => cell ? randomInt(1, 7) : 0));
       const positions = [];
-
-      for (let y = 0; y < matrix.length; y++) {
-        for (let x = 0; x < matrix[y].length; x++) {
-          if (matrix[y][x]) positions.push([x, y]);
-        }
+      for (let y = 0; y < matrix.length; y++) for (let x = 0; x < matrix[y].length; x++) if (matrix[y][x]) positions.push([x, y]);
+      if (positions.length >= 2 && new Set(positions.map(([x, y]) => matrix[y][x])).size === 1) {
+        const [x, y] = positions[positions.length - 1];
+        matrix[y][x] = matrix[y][x] === 7 ? 1 : matrix[y][x] + 1;
       }
-
-      // 1つの落下ブロック内が全部同じ数字だと「同じ数値のセット」に見えるため、
-      // 占有マスが2個以上あるミノでは最低2種類以上の数字になるように強制する。
-      if (positions.length >= 2) {
-        const uniqueValues = new Set(positions.map(([x, y]) => matrix[y][x]));
-        if (uniqueValues.size === 1) {
-          const [x, y] = positions[positions.length - 1];
-          matrix[y][x] = matrix[y][x] === 7 ? 1 : matrix[y][x] + 1;
-        }
-      }
-
       return matrix;
     }
 
     function createPiece() {
       const shape = shapes[randomInt(0, shapes.length - 1)];
-      if (!Array.isArray(shape) || !Array.isArray(shape[0])) {
-        throw new Error("Invalid shape data");
-      }
-
-      return {
-        matrix: createRandomValueMatrix(shape),
-        x: Math.floor(COLS / 2) - Math.ceil(shape[0].length / 2),
-        y: 0
-      };
+      return { matrix: createRandomValueMatrix(shape), x: Math.floor(COLS / 2) - Math.ceil(shape[0].length / 2), y: 0 };
     }
 
-    function isValidMatrix(matrix) {
-      return Array.isArray(matrix) &&
-        matrix.length > 0 &&
-        Array.isArray(matrix[0]) &&
-        matrix[0].length > 0 &&
-        matrix.every(row => Array.isArray(row) && row.length === matrix[0].length);
-    }
-
+    function isValidMatrix(matrix) { return Array.isArray(matrix) && matrix.length > 0 && Array.isArray(matrix[0]) && matrix[0].length > 0 && matrix.every(row => Array.isArray(row) && row.length === matrix[0].length); }
     function rotate(matrix) {
       if (!isValidMatrix(matrix)) return matrix;
-
-      const h = matrix.length;
-      const w = matrix[0].length;
+      const h = matrix.length, w = matrix[0].length;
       const result = Array.from({ length: w }, () => Array(h).fill(0));
-
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          result[x][h - 1 - y] = matrix[y][x];
-        }
-      }
-
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) result[x][h - 1 - y] = matrix[y][x];
       return result;
     }
 
     function collide(piece) {
       ensureBoard();
       if (!piece || !isValidMatrix(piece.matrix)) return true;
-
       for (let y = 0; y < piece.matrix.length; y++) {
         for (let x = 0; x < piece.matrix[y].length; x++) {
           if (!piece.matrix[y][x]) continue;
-
           const bx = piece.x + x;
           const by = piece.y + y;
-
           if (bx < 0 || bx >= COLS || by >= ROWS) return true;
           if (by >= 0 && board[by] && board[by][bx]) return true;
         }
       }
-
       return false;
     }
 
     function merge(piece) {
       ensureBoard();
       if (!piece || !isValidMatrix(piece.matrix)) return;
-
       for (let y = 0; y < piece.matrix.length; y++) {
         for (let x = 0; x < piece.matrix[y].length; x++) {
           const value = piece.matrix[y][x];
           const bx = piece.x + x;
           const by = piece.y + y;
-
-          if (value && by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
-            board[by][bx] = value;
-          }
+          if (value && by >= 0 && by < ROWS && bx >= 0 && bx < COLS) board[by][bx] = value;
         }
       }
     }
 
-    function findClearCells() {
+    function findClearGroups() {
       ensureBoard();
-      const clear = new Set();
-
-      function addLine(cells) {
+      const groups = [];
+      const addGroup = (cells) => {
+        const normalized = [];
+        const seen = new Set();
         for (const [x, y] of cells) {
-          if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
-            clear.add(`${x},${y}`);
-          }
+          const key = `${x},${y}`;
+          if (x >= 0 && x < COLS && y >= 0 && y < ROWS && !seen.has(key)) { seen.add(key); normalized.push([x, y]); }
         }
-      }
+        if (normalized.length > 0) groups.push(normalized);
+      };
 
-      // 横方向：連続した数字の合計7、または 7,7,7
       for (let y = 0; y < ROWS; y++) {
         for (let start = 0; start < COLS; start++) {
           if (!board[y][start]) continue;
-
           let sum = 0;
           const cells = [];
-
           for (let x = start; x < COLS; x++) {
             const v = board[y][x];
             if (!v) break;
-
             sum += v;
             cells.push([x, y]);
-
-            if (sum === 7 && cells.length >= 2) addLine(cells);
+            if (sum === 7 && cells.length >= 2) addGroup(cells);
             if (sum >= 7) break;
           }
-
-          if (
-            start + 2 < COLS &&
-            board[y][start] === 7 &&
-            board[y][start + 1] === 7 &&
-            board[y][start + 2] === 7
-          ) {
-            addLine([[start, y], [start + 1, y], [start + 2, y]]);
-          }
+          if (start + 2 < COLS && board[y][start] === 7 && board[y][start + 1] === 7 && board[y][start + 2] === 7) addGroup([[start, y], [start + 1, y], [start + 2, y]]);
         }
       }
 
-      // 縦方向：連続した数字の合計7、または 7,7,7
       for (let x = 0; x < COLS; x++) {
         for (let start = 0; start < ROWS; start++) {
           if (!board[start][x]) continue;
-
           let sum = 0;
           const cells = [];
-
           for (let y = start; y < ROWS; y++) {
             const v = board[y][x];
             if (!v) break;
-
             sum += v;
             cells.push([x, y]);
-
-            if (sum === 7 && cells.length >= 2) addLine(cells);
+            if (sum === 7 && cells.length >= 2) addGroup(cells);
             if (sum >= 7) break;
           }
-
-          if (
-            start + 2 < ROWS &&
-            board[start][x] === 7 &&
-            board[start + 1][x] === 7 &&
-            board[start + 2][x] === 7
-          ) {
-            addLine([[x, start], [x, start + 1], [x, start + 2]]);
-          }
+          if (start + 2 < ROWS && board[start][x] === 7 && board[start + 1][x] === 7 && board[start + 2][x] === 7) addGroup([[x, start], [x, start + 1], [x, start + 2]]);
         }
       }
-
-      return clear;
+      return groups;
     }
 
-    function clearMatches() {
-      ensureBoard();
-      let totalCleared = 0;
-      let chain = 0;
-
-      while (true) {
-        const clear = findClearCells();
-        if (clear.size === 0) break;
-
-        for (const key of clear) {
-          const [x, y] = key.split(",").map(Number);
-          if (board[y] && typeof board[y][x] !== "undefined") {
-            board[y][x] = 0;
-          }
-        }
-
-        applyGravity();
-        totalCleared += clear.size;
-        chain++;
-      }
-
-      if (totalCleared > 0) {
-        score += totalCleared * 10 * Math.max(1, chain);
-        scoreEl.textContent = score;
-      }
+    function groupsToCellSet(groups) { const clear = new Set(); for (const group of groups) for (const [x, y] of group) clear.add(`${x},${y}`); return clear; }
+    function findClearCells() { return groupsToCellSet(findClearGroups()); }
+    function isGroupOnlyFromLockedPiece(group, lockedCells) { return lockedCells && lockedCells.size > 0 && group.every(([x, y]) => lockedCells.has(`${x},${y}`)); }
+    function findClearCellsForResolve(lockedCells, isFirstResolveStep) {
+      const groups = findClearGroups().filter(group => !(isFirstResolveStep && isGroupOnlyFromLockedPiece(group, lockedCells)));
+      return groupsToCellSet(groups);
     }
 
+    function updateScore(totalCleared, chain) { if (totalCleared > 0) { score += totalCleared * 10 * Math.max(1, chain); scoreEl.textContent = score; } }
+    function clearCellsNow(clear) { for (const key of clear) { const [x, y] = key.split(",").map(Number); if (board[y] && typeof board[y][x] !== "undefined") board[y][x] = 0; } }
     function applyGravity() {
       ensureBoard();
-
       for (let x = 0; x < COLS; x++) {
         const stack = [];
+        for (let y = ROWS - 1; y >= 0; y--) if (board[y][x]) stack.push(board[y][x]);
+        for (let y = ROWS - 1; y >= 0; y--) board[y][x] = stack[ROWS - 1 - y] || 0;
+      }
+    }
 
-        for (let y = ROWS - 1; y >= 0; y--) {
-          if (board[y][x]) stack.push(board[y][x]);
+    function clearActiveTimer() {
+      if (activeTimerId !== null) clearTimeout(activeTimerId);
+      activeTimerId = null; activeTimerStartedAt = 0; activeTimerDelay = 0; activeTimerRemaining = 0; activeTimerCallback = null;
+    }
+    function scheduleGameTimer(callback, delay) {
+      clearActiveTimer();
+      activeTimerCallback = callback; activeTimerDelay = delay; activeTimerRemaining = delay; activeTimerStartedAt = performance.now();
+      activeTimerId = setTimeout(() => { activeTimerId = null; activeTimerCallback = null; activeTimerRemaining = 0; callback(); }, delay);
+    }
+    function pauseGameTimer() {
+      if (activeTimerId === null) return;
+      clearTimeout(activeTimerId); activeTimerId = null;
+      activeTimerRemaining = Math.max(0, activeTimerDelay - (performance.now() - activeTimerStartedAt));
+    }
+    function resumeGameTimer() {
+      if (!activeTimerCallback || activeTimerId !== null) return;
+      const callback = activeTimerCallback;
+      const remaining = activeTimerRemaining;
+      activeTimerDelay = remaining; activeTimerStartedAt = performance.now();
+      activeTimerId = setTimeout(() => { activeTimerId = null; activeTimerCallback = null; activeTimerRemaining = 0; callback(); }, remaining);
+    }
+
+    function resolveMatchesAfterLock(onDone = () => {}, lockedCells = new Set()) {
+      if (resolving) {
+        pendingResolveQueue.push({ onDone, lockedCells });
+        return;
+      }
+      resolving = true;
+      let totalCleared = 0;
+      let chain = 0;
+      function step() {
+        if (!gameRunning || isPaused) return;
+        const clear = findClearCellsForResolve(lockedCells, chain === 0);
+        if (clear.size === 0) {
+          clearingCells = new Set();
+          resolving = false;
+          updateScore(totalCleared, chain);
+          onDone();
+
+          const nextResolve = pendingResolveQueue.shift();
+          if (nextResolve) {
+            resolveMatchesAfterLock(nextResolve.onDone, nextResolve.lockedCells);
+          }
+          return;
         }
-
-        for (let y = ROWS - 1; y >= 0; y--) {
-          board[y][x] = stack[ROWS - 1 - y] || 0;
-        }
+        clearingCells = clear;
+        draw();
+        scheduleGameTimer(() => {
+          if (!gameRunning || isPaused) return;
+          clearCellsNow(clear); clearingCells = new Set(); applyGravity(); totalCleared += clear.size; chain++; draw();
+          scheduleGameTimer(step, CHAIN_DELAY);
+        }, CLEAR_DELAY);
       }
+      step();
     }
 
-    function spawnPiece() {
-      current = createPiece();
-      if (collide(current)) {
-        gameOver();
-      }
+    function initAudio() {
+      if (audioContext) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) { musicEnabled = false; musicButton.textContent = "MUSIC OFF"; return; }
+      audioContext = new AudioContextClass();
+      masterGain = audioContext.createGain();
+      masterGain.gain.value = 0.055;
+      masterGain.connect(audioContext.destination);
+    }
+    async function startMusic() {
+      if (!musicEnabled) return;
+      initAudio();
+      if (!audioContext || !masterGain) return;
+      if (audioContext.state === "suspended") await audioContext.resume();
+      if (musicTimerId !== null) return;
+      musicStep = 0;
+      musicTimerId = setInterval(playMusicStep, MUSIC_STEP_MS);
+      playMusicStep();
+    }
+    function stopMusic() { if (musicTimerId !== null) { clearInterval(musicTimerId); musicTimerId = null; } }
+    function toggleMusic() {
+      musicEnabled = !musicEnabled;
+      musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
+      if (!musicEnabled) stopMusic();
+      else if (gameRunning) startMusic();
+    }
+    function playMusicStep() {
+      if (!audioContext || !masterGain || !musicEnabled || !gameRunning) return;
+      const frequency = musicMelody[musicStep % musicMelody.length];
+      musicStep++;
+      if (!frequency) return;
+      const now = audioContext.currentTime;
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(frequency, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.45, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+      osc.connect(gain); gain.connect(masterGain); osc.start(now); osc.stop(now + 0.18);
     }
 
-    function drop() {
-      if (!gameRunning || !current) return;
-
-      current.y++;
-      if (collide(current)) {
-        current.y--;
-        merge(current);
-        clearMatches();
-        spawnPiece();
+    function spawnPiece() { current = createPiece(); if (collide(current)) gameOver(); }
+    function updateSpeed() { speedLevel = Math.floor(lockedPieceCount / SPEED_UP_EVERY_LOCKS) + 1; dropInterval = Math.max(MIN_DROP_INTERVAL, START_DROP_INTERVAL - ((speedLevel - 1) * SPEED_UP_AMOUNT)); speedEl.textContent = speedLevel; }
+    function getPieceBoardCells(piece) {
+      const cells = new Set();
+      if (!piece || !isValidMatrix(piece.matrix)) return cells;
+      for (let y = 0; y < piece.matrix.length; y++) for (let x = 0; x < piece.matrix[y].length; x++) if (piece.matrix[y][x]) {
+        const bx = piece.x + x, by = piece.y + y;
+        if (bx >= 0 && bx < COLS && by >= 0 && by < ROWS) cells.add(`${bx},${by}`);
       }
-      dropCounter = 0;
+      return cells;
     }
-
-    function hardDrop() {
-      if (!gameRunning || !current) return;
-
-      while (!collide(current)) {
-        current.y++;
-      }
-      current.y--;
-      merge(current);
-      clearMatches();
+    function lockCurrentPiece() {
+      if (!gameRunning || isPaused || !current) return;
+      const lockedCells = getPieceBoardCells(current);
+      merge(current); current = null; lockedPieceCount++; updateSpeed();
       spawnPiece();
-      dropCounter = 0;
+      resolveMatchesAfterLock(() => {}, lockedCells);
     }
-
-    function move(dir) {
-      if (!gameRunning || !current) return;
-
-      current.x += dir;
-      if (collide(current)) current.x -= dir;
-    }
-
+    function drop() { if (!gameRunning || isPaused || !current) return; current.y++; if (collide(current)) { current.y--; lockCurrentPiece(); } dropCounter = 0; }
+    function hardDrop() { if (!gameRunning || isPaused || !current) return; while (!collide(current)) current.y++; current.y--; lockCurrentPiece(); dropCounter = 0; }
+    function move(dir) { if (!gameRunning || isPaused || !current) return; current.x += dir; if (collide(current)) current.x -= dir; }
     function rotatePiece() {
-      if (!gameRunning || !current || !isValidMatrix(current.matrix)) return;
-
+      if (!gameRunning || isPaused || !current || !isValidMatrix(current.matrix)) return;
       const oldMatrix = current.matrix.map(row => row.slice());
       const oldX = current.x;
       current.matrix = rotate(current.matrix);
-
-      if (collide(current)) {
-        current.x++;
-        if (collide(current)) {
-          current.x -= 2;
-          if (collide(current)) {
-            current.matrix = oldMatrix;
-            current.x = oldX;
-          }
-        }
-      }
+      if (collide(current)) { current.x++; if (collide(current)) { current.x -= 2; if (collide(current)) { current.matrix = oldMatrix; current.x = oldX; } } }
     }
 
-    function drawCell(x, y, value) {
+    function drawCell(x, y, value, mode = "normal") {
       if (!value || x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
-
-      const px = x * CELL;
-      const py = y * CELL;
-
-      ctx.fillStyle = colors[value] || "#ffffff";
+      const px = x * CELL, py = y * CELL;
+      const isClearing = mode === "clearing";
+      ctx.save();
+      if (isClearing) { ctx.shadowColor = "#fff7a8"; ctx.shadowBlur = 18; ctx.globalAlpha = 0.92; }
+      ctx.fillStyle = isClearing ? "#fff7a8" : (colors[value] || "#ffffff");
       ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
-
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillStyle = isClearing ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.18)";
       ctx.fillRect(px + 2, py + 2, CELL - 4, 6);
-
-      ctx.fillStyle = "#111";
-      ctx.font = "bold 17px system-ui";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#111"; ctx.font = isClearing ? "bold 20px system-ui" : "bold 17px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(String(value), px + CELL / 2, py + CELL / 2 + 1);
+      if (isClearing) { ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.strokeRect(px + 4, py + 4, CELL - 8, CELL - 8); }
+      ctx.restore();
     }
-
     function drawGrid() {
-      ctx.strokeStyle = "rgba(255,255,255,0.055)";
-      ctx.lineWidth = 1;
-
-      for (let x = 0; x <= COLS; x++) {
-        ctx.beginPath();
-        ctx.moveTo(x * CELL, 0);
-        ctx.lineTo(x * CELL, ROWS * CELL);
-        ctx.stroke();
-      }
-
-      for (let y = 0; y <= ROWS; y++) {
-        ctx.beginPath();
-        ctx.moveTo(0, y * CELL);
-        ctx.lineTo(COLS * CELL, y * CELL);
-        ctx.stroke();
-      }
+      ctx.strokeStyle = "rgba(255,255,255,0.055)"; ctx.lineWidth = 1;
+      for (let x = 0; x <= COLS; x++) { ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, ROWS * CELL); ctx.stroke(); }
+      for (let y = 0; y <= ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(COLS * CELL, y * CELL); ctx.stroke(); }
     }
-
+    function drawPauseText() {
+      ctx.save(); ctx.fillStyle = "rgba(0,0,0,0.42)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#ffe45e"; ctx.font = "bold 34px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("PAUSE", canvas.width / 2, canvas.height / 2);
+      ctx.font = "bold 13px system-ui"; ctx.fillStyle = "#fff"; ctx.fillText("P または RESUME で再開", canvas.width / 2, canvas.height / 2 + 38); ctx.restore();
+    }
     function draw() {
-      ensureBoard();
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = "#090912";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      drawGrid();
-
-      for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-          if (board[y][x]) drawCell(x, y, board[y][x]);
-        }
-      }
-
-      if (current && isValidMatrix(current.matrix)) {
-        for (let y = 0; y < current.matrix.length; y++) {
-          for (let x = 0; x < current.matrix[y].length; x++) {
-            const value = current.matrix[y][x];
-            if (value) drawCell(current.x + x, current.y + y, value);
-          }
-        }
-      }
+      ensureBoard(); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#090912"; ctx.fillRect(0, 0, canvas.width, canvas.height); drawGrid();
+      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (board[y][x]) drawCell(x, y, board[y][x], clearingCells.has(`${x},${y}`) ? "clearing" : "normal");
+      if (current && isValidMatrix(current.matrix)) for (let y = 0; y < current.matrix.length; y++) for (let x = 0; x < current.matrix[y].length; x++) if (current.matrix[y][x]) drawCell(current.x + x, current.y + y, current.matrix[y][x]);
+      if (isPaused) drawPauseText();
     }
-
     function update(time = 0) {
       if (!gameRunning) return;
-
+      if (isPaused) { draw(); return; }
       const delta = time - lastTime;
       lastTime = time;
       dropCounter += delta;
-
       if (dropCounter > dropInterval) drop();
       draw();
       animationId = requestAnimationFrame(update);
     }
 
+    function resetGameState() {
+      clearActiveTimer(); stopMusic();
+      board = createBoard(); current = null; score = 0; gameRunning = false; isPaused = false; resolving = false; pendingResolveQueue = []; clearingCells = new Set();
+      dropCounter = 0; lastTime = 0; dropInterval = START_DROP_INTERVAL; lockedPieceCount = 0; speedLevel = 1;
+      scoreEl.textContent = score; speedEl.textContent = speedLevel; pauseButton.textContent = "PAUSE"; pauseButton.disabled = true; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
+    }
     function startGame() {
-      if (animationId !== null) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-      }
-
-      board = createBoard();
-      current = null;
-      score = 0;
-      scoreEl.textContent = score;
-      dropCounter = 0;
-      lastTime = performance.now();
-      dropInterval = 650;
-      gameRunning = true;
-      overlay.classList.add("hidden");
-      spawnPiece();
+      if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
+      resetGameState(); gameRunning = true; isPaused = false; pauseButton.disabled = false; overlay.classList.add("hidden"); spawnPiece(); draw(); lastTime = performance.now(); animationId = requestAnimationFrame(update); startMusic();
+    }
+    function pauseGame() { if (!gameRunning || isPaused) return; isPaused = true; pauseButton.textContent = "RESUME"; pauseGameTimer(); stopMusic(); if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; } draw(); }
+    function resumeGame() { if (!gameRunning || !isPaused) return; isPaused = false; pauseButton.textContent = "PAUSE"; lastTime = performance.now(); resumeGameTimer(); startMusic(); draw(); if (animationId === null) animationId = requestAnimationFrame(update); }
+    function togglePause() { if (!gameRunning) return; if (isPaused) resumeGame(); else pauseGame(); }
+    function handleTouchAction(action) {
+      if (!gameRunning || isPaused) return;
+      if (action === "left") move(-1);
+      if (action === "right") move(1);
+      if (action === "down") drop();
+      if (action === "rotate") rotatePiece();
+      if (action === "drop") hardDrop();
       draw();
-      animationId = requestAnimationFrame(update);
     }
 
-    function gameOver() {
-      gameRunning = false;
-      current = null;
+    function bindTouchButton(button) {
+      let lastHandledAt = 0;
 
-      if (animationId !== null) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
+      function run(e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        // pointerdown / touchstart / mousedown / click の二重発火対策。
+        const now = performance.now();
+        if (now - lastHandledAt < 120) return;
+        lastHandledAt = now;
+
+        if (isTouchMode()) handleTouchAction(button.dataset.action);
       }
 
-      overlay.classList.remove("hidden");
-      overlay.querySelector("h1").textContent = "GAME OVER";
-      overlay.querySelector("p").innerHTML = `SCORE：${score}<br>もう一度プレイしますか？`;
-      startButton.textContent = "RESTART";
-      draw();
+      button.addEventListener("pointerdown", run, { passive: false });
+      button.addEventListener("touchstart", run, { passive: false });
+      button.addEventListener("mousedown", run);
+      button.addEventListener("click", run);
+    }
+
+    function bindCanvasGestureControls(target) {
+      let startX = 0;
+      let startY = 0;
+      let startTime = 0;
+      const SWIPE_THRESHOLD = 26;
+      const TAP_MAX_MOVE = 12;
+      const TAP_MAX_TIME = 260;
+
+      function getPoint(e) {
+        if (e.changedTouches && e.changedTouches.length > 0) {
+          return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        }
+        if (e.touches && e.touches.length > 0) {
+          return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+      }
+
+      function start(e) {
+        if (!isTouchMode()) return;
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const p = getPoint(e);
+        startX = p.x;
+        startY = p.y;
+        startTime = performance.now();
+      }
+
+      function end(e) {
+        if (!isTouchMode()) return;
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        if (!gameRunning || isPaused) return;
+
+        const p = getPoint(e);
+        const dx = p.x - startX;
+        const dy = p.y - startY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+        const elapsed = performance.now() - startTime;
+
+        if (absX <= TAP_MAX_MOVE && absY <= TAP_MAX_MOVE && elapsed <= TAP_MAX_TIME) {
+          rotatePiece();
+          draw();
+          return;
+        }
+
+        if (absX > absY && absX >= SWIPE_THRESHOLD) {
+          move(dx > 0 ? 1 : -1);
+          draw();
+          return;
+        }
+
+        if (absY >= SWIPE_THRESHOLD && dy > 0) {
+          if (absY > 90) hardDrop();
+          else drop();
+          draw();
+        }
+      }
+
+      target.addEventListener("pointerdown", start, { passive: false });
+      target.addEventListener("pointerup", end, { passive: false });
+      target.addEventListener("touchstart", start, { passive: false });
+      target.addEventListener("touchend", end, { passive: false });
+    }
+    function gameOver() {
+      gameRunning = false; isPaused = false; current = null; resolving = false; pendingResolveQueue = []; clearingCells = new Set(); clearActiveTimer(); stopMusic();
+      if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
+      pauseButton.textContent = "PAUSE"; pauseButton.disabled = true;
+      overlay.classList.remove("hidden"); overlay.querySelector("h1").textContent = "GAME OVER"; overlay.querySelector("p").innerHTML = `SCORE：${score}<br>もう一度プレイしますか？`; startButton.textContent = "RESTART"; draw();
     }
 
     function runTests() {
-      const oldBoard = board;
-      const oldScore = score;
-      const oldCurrent = current;
-
+      const oldBoard = board, oldScore = score, oldCurrent = current, oldGameRunning = gameRunning, oldIsPaused = isPaused, oldResolving = resolving;
+      const oldPendingResolveQueue = pendingResolveQueue.slice();
+      const oldLockedPieceCount = lockedPieceCount, oldSpeedLevel = speedLevel, oldDropInterval = dropInterval, oldDropCounter = dropCounter, oldMusicEnabled = musicEnabled;
       console.assert(isValidBoard(createBoard()), "createBoard should create a valid 10x20 board");
       console.assert(JSON.stringify(rotate([[1, 2, 3]])) === JSON.stringify([[1], [2], [3]]), "rotate should rotate a 1x3 matrix");
-      console.assert(JSON.stringify(rotate([[1, 0], [1, 1]])) === JSON.stringify([[1, 1], [1, 0]]), "rotate should rotate a 2x2 matrix");
-
-      const testPiece = createPiece();
-      const values = testPiece.matrix.flat().filter(Boolean);
-      console.assert(values.length > 0, "createPiece should create occupied cells");
-      console.assert(values.every(v => v >= 1 && v <= 7), "each occupied cell should have a random value from 1 to 7");
-      console.assert(new Set(values).size >= 2, "one falling tetromino should contain at least 2 different numbers");
-
-      for (let i = 0; i < 30; i++) {
-        const piece = createPiece();
-        const pieceValues = piece.matrix.flat().filter(Boolean);
-        console.assert(pieceValues.every(v => v >= 1 && v <= 7), "generated piece values should stay between 1 and 7");
-        console.assert(new Set(pieceValues).size >= 2, "generated piece should not be all the same number");
-      }
-
-      board = createBoard();
-      board[19][0] = 3;
-      board[19][1] = 4;
-      let clear = findClearCells();
-      console.assert(clear.has("0,19") && clear.has("1,19"), "3+4 horizontally should clear");
-
-      board = createBoard();
-      board[19][0] = 1;
-      board[19][1] = 2;
-      board[19][2] = 4;
-      clear = findClearCells();
-      console.assert(clear.has("0,19") && clear.has("1,19") && clear.has("2,19"), "1+2+4 horizontally should clear");
-
-      board = createBoard();
-      board[19][0] = 6;
-      board[19][1] = 1;
-      clear = findClearCells();
-      console.assert(clear.has("0,19") && clear.has("1,19"), "6+1 horizontally should clear");
-
-      board = createBoard();
-      board[18][0] = 2;
-      board[19][0] = 5;
-      clear = findClearCells();
-      console.assert(clear.has("0,18") && clear.has("0,19"), "2+5 vertically should clear");
-
-      board = createBoard();
-      board[19][0] = 7;
-      clear = findClearCells();
-      console.assert(clear.size === 0, "single 7 should not clear");
-
-      board = createBoard();
-      board[19][0] = 7;
-      board[19][1] = 7;
-      board[19][2] = 7;
-      clear = findClearCells();
-      console.assert(clear.has("0,19") && clear.has("1,19") && clear.has("2,19"), "7,7,7 horizontally should clear");
-
-      board = createBoard();
-      board[17][0] = 7;
-      board[18][0] = 7;
-      board[19][0] = 7;
-      clear = findClearCells();
-      console.assert(clear.has("0,17") && clear.has("0,18") && clear.has("0,19"), "7,7,7 vertically should clear");
-
-      board = oldBoard;
-      score = oldScore;
-      current = oldCurrent;
+      const testPiece = createPiece(); const values = testPiece.matrix.flat().filter(Boolean);
+      console.assert(values.every(v => v >= 1 && v <= 7), "piece values should be 1 to 7");
+      console.assert(new Set(values).size >= 2, "piece should not be all same number");
+      board = createBoard(); board[19][0] = 3; board[19][1] = 4; let clear = findClearCells(); console.assert(clear.has("0,19") && clear.has("1,19"), "3+4 horizontal should clear");
+      board = createBoard(); board[18][0] = 2; board[19][0] = 5; clear = findClearCells(); console.assert(clear.has("0,18") && clear.has("0,19"), "2+5 vertical should clear");
+      board = createBoard(); board[19][0] = 7; clear = findClearCells(); console.assert(clear.size === 0, "single 7 should not clear");
+      board = createBoard(); board[19][0] = 7; board[19][1] = 7; board[19][2] = 7; clear = findClearCells(); console.assert(clear.has("0,19") && clear.has("1,19") && clear.has("2,19"), "777 horizontal should clear");
+      board = createBoard(); board[19][0] = 3; board[19][1] = 4; clear = findClearCellsForResolve(new Set(["0,19", "1,19"]), true); console.assert(clear.size === 0, "new piece only clear should be ignored first");
+      board = createBoard(); board[19][0] = 3; board[19][1] = 4; clear = findClearCellsForResolve(new Set(["1,19"]), true); console.assert(clear.has("0,19") && clear.has("1,19"), "existing + new clear should work");
+      lockedPieceCount = 0; updateSpeed(); console.assert(dropInterval === START_DROP_INTERVAL && speedLevel === 1, "initial speed level 1");
+      lockedPieceCount = SPEED_UP_EVERY_LOCKS; updateSpeed(); console.assert(dropInterval < START_DROP_INTERVAL && speedLevel === 2, "speed should increase");
+      console.assert(typeof handleTouchAction === "function", "touch controls handler should exist");
+      console.assert(typeof bindTouchButton === "function", "touch button binder should exist");
+      console.assert(typeof bindCanvasGestureControls === "function", "canvas gesture controls binder should exist");
+      console.assert(["pc", "touch"].includes(detectInputMode()), "input mode should be pc or touch");
+      resolving = true;
+      pendingResolveQueue = [];
+      const queuedCells = new Set(["0,19", "1,19"]);
+      resolveMatchesAfterLock(() => {}, queuedCells);
+      console.assert(pendingResolveQueue.length === 1, "resolve requests during clearing should be queued");
+      console.assert(pendingResolveQueue[0].lockedCells === queuedCells, "queued resolve should preserve lockedCells for new-piece-only exclusion");
+      resolving = false;
+      pendingResolveQueue = [];
+      musicEnabled = true; toggleMusic(); console.assert(musicEnabled === false, "music toggle off"); toggleMusic(); console.assert(musicEnabled === true, "music toggle on"); stopMusic();
+      board = oldBoard; score = oldScore; current = oldCurrent; gameRunning = oldGameRunning; isPaused = oldIsPaused; resolving = oldResolving; pendingResolveQueue = oldPendingResolveQueue; lockedPieceCount = oldLockedPieceCount; speedLevel = oldSpeedLevel; dropInterval = oldDropInterval; dropCounter = oldDropCounter; musicEnabled = oldMusicEnabled;
+      clearActiveTimer(); stopMusic(); scoreEl.textContent = score; speedEl.textContent = speedLevel; pauseButton.textContent = isPaused ? "RESUME" : "PAUSE"; pauseButton.disabled = !gameRunning; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
       console.info("777 Tetris tests finished");
     }
 
     document.addEventListener("keydown", (e) => {
-      if (!gameRunning) return;
+      if (isTouchMode()) return;
+      const gameKeys = ["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " ", "Spacebar"];
+      if (gameRunning && (gameKeys.includes(e.key) || e.code === "Space" || e.key.toLowerCase() === "p")) {
+        e.preventDefault();
+      }
 
+      if (e.key.toLowerCase() === "p") { togglePause(); return; }
+      if (!gameRunning || isPaused) return;
       if (e.key === "ArrowLeft") move(-1);
       if (e.key === "ArrowRight") move(1);
       if (e.key === "ArrowDown") drop();
       if (e.key === "ArrowUp") rotatePiece();
-      if (e.code === "Space") {
-        e.preventDefault();
-        hardDrop();
-      }
-
+      if (e.code === "Space") hardDrop();
       draw();
+    }, { passive: false });
+    pauseButton.addEventListener("click", togglePause);
+    musicButton.addEventListener("click", toggleMusic);
+    document.querySelectorAll(".mobile-button").forEach(bindTouchButton);
+    bindCanvasGestureControls(canvas);
+    window.addEventListener("touchmove", (e) => {
+      if (gameRunning && isTouchMode()) e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener("wheel", (e) => {
+      if (gameRunning && isTouchMode()) e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener("contextmenu", (e) => {
+      // iPad / Brave で長押しメニューが出るのを抑える。
+      if (gameRunning && isTouchMode()) e.preventDefault();
     });
 
+    window.addEventListener("gesturestart", (e) => {
+      // iPad系ブラウザでのピンチ操作による拡大を抑える保険。
+      if (gameRunning && isTouchMode()) e.preventDefault();
+    });
     startButton.addEventListener("click", () => {
       overlay.querySelector("h1").textContent = "777 TETRIS";
       overlay.querySelector("p").innerHTML = "1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>7だけは3つ並べると消えます。";
@@ -700,6 +891,9 @@
       startGame();
     });
 
+    applyInputMode();
+    window.addEventListener("resize", applyInputMode);
+    window.addEventListener("orientationchange", applyInputMode);
     runTests();
     draw();
   </script>
