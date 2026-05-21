@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple 777 Tetris</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at top, #252547, #0c0c16 70%);
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .game-wrap {
+      position: relative;
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      padding: 24px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      background: rgba(10,10,22,0.72);
+      box-shadow: 0 20px 80px rgba(0,0,0,0.45);
+    }
+
+    canvas {
+      display: block;
+      width: 300px;
+      height: 600px;
+      border-radius: 14px;
+      background: #090912;
+      border: 2px solid rgba(255,255,255,0.16);
+    }
+
+    .side {
+      width: 180px;
+    }
+
+    .title {
+      margin: 0 0 12px;
+      font-size: 24px;
+      letter-spacing: 0.04em;
+    }
+
+    .score-box {
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.08);
+      margin-bottom: 16px;
+    }
+
+    .score-label {
+      color: #aaa;
+      font-size: 13px;
+    }
+
+    .score {
+      font-size: 34px;
+      font-weight: 800;
+    }
+
+    .help {
+      color: #cfcfe7;
+      font-size: 13px;
+      line-height: 1.75;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(4px);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .panel {
+      width: min(420px, 90%);
+      padding: 28px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .panel h1 {
+      margin: 0 0 10px;
+      font-size: 36px;
+    }
+
+    .panel p {
+      margin: 0 0 20px;
+      color: #ddddf5;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 28px;
+      color: #101018;
+      background: #ffe45e;
+      font-weight: 800;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(255, 228, 94, 0.35);
+    }
+
+    button:hover {
+      filter: brightness(1.06);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrap">
+    <canvas id="game" width="300" height="600"></canvas>
+
+    <div class="side">
+      <h2 class="title">777 TETRIS</h2>
+      <div class="score-box">
+        <div class="score-label">SCORE</div>
+        <div id="score" class="score">0</div>
+      </div>
+      <div class="help">
+        ← →：移動<br>
+        ↑：回転<br>
+        ↓：落下<br>
+        Space：即落下<br><br>
+        縦横の連続合計が7で消えます。<br>
+        数字7は、7を3つ並べると消えます。
+      </div>
+    </div>
+
+    <div id="overlay" class="overlay">
+      <div class="panel">
+        <h1>777 TETRIS</h1>
+        <p>
+          1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>
+          7だけは3つ並べると消えます。
+        </p>
+        <button id="startButton">START</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const overlay = document.getElementById("overlay");
+    const startButton = document.getElementById("startButton");
+
+    const COLS = 10;
+    const ROWS = 20;
+    const CELL = 30;
+
+    let board = createBoard();
+    let current = null;
+    let score = 0;
+    let gameRunning = false;
+    let dropCounter = 0;
+    let lastTime = 0;
+    let dropInterval = 650;
+    let animationId = null;
+
+    const colors = {
+      1: "#7dd3fc",
+      2: "#86efac",
+      3: "#fde047",
+      4: "#fb923c",
+      5: "#f472b6",
+      6: "#c084fc",
+      7: "#f87171"
+    };
+
+    const shapes = [
+      [[1, 1, 1, 1]],
+      [[1, 1], [1, 1]],
+      [[0, 1, 0], [1, 1, 1]],
+      [[1, 0, 0], [1, 1, 1]],
+      [[0, 0, 1], [1, 1, 1]],
+      [[1, 1, 0], [0, 1, 1]],
+      [[0, 1, 1], [1, 1, 0]]
+    ];
+
+    function createBoard() {
+      return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    }
+
+    function isValidBoard(targetBoard) {
+      return Array.isArray(targetBoard) &&
+        targetBoard.length === ROWS &&
+        targetBoard.every(row => Array.isArray(row) && row.length === COLS);
+    }
+
+    function ensureBoard() {
+      if (!isValidBoard(board)) {
+        board = createBoard();
+      }
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function createRandomValueMatrix(shape) {
+      const matrix = shape.map(row => row.map(cell => cell ? randomInt(1, 7) : 0));
+      const positions = [];
+
+      for (let y = 0; y < matrix.length; y++) {
+        for (let x = 0; x < matrix[y].length; x++) {
+          if (matrix[y][x]) positions.push([x, y]);
+        }
+      }
+
+      // 1つの落下ブロック内が全部同じ数字だと「同じ数値のセット」に見えるため、
+      // 占有マスが2個以上あるミノでは最低2種類以上の数字になるように強制する。
+      if (positions.length >= 2) {
+        const uniqueValues = new Set(positions.map(([x, y]) => matrix[y][x]));
+        if (uniqueValues.size === 1) {
+          const [x, y] = positions[positions.length - 1];
+          matrix[y][x] = matrix[y][x] === 7 ? 1 : matrix[y][x] + 1;
+        }
+      }
+
+      return matrix;
+    }
+
+    function createPiece() {
+      const shape = shapes[randomInt(0, shapes.length - 1)];
+      if (!Array.isArray(shape) || !Array.isArray(shape[0])) {
+        throw new Error("Invalid shape data");
+      }
+
+      return {
+        matrix: createRandomValueMatrix(shape),
+        x: Math.floor(COLS / 2) - Math.ceil(shape[0].length / 2),
+        y: 0
+      };
+    }
+
+    function isValidMatrix(matrix) {
+      return Array.isArray(matrix) &&
+        matrix.length > 0 &&
+        Array.isArray(matrix[0]) &&
+        matrix[0].length > 0 &&
+        matrix.every(row => Array.isArray(row) && row.length === matrix[0].length);
+    }
+
+    function rotate(matrix) {
+      if (!isValidMatrix(matrix)) return matrix;
+
+      const h = matrix.length;
+      const w = matrix[0].length;
+      const result = Array.from({ length: w }, () => Array(h).fill(0));
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          result[x][h - 1 - y] = matrix[y][x];
+        }
+      }
+
+      return result;
+    }
+
+    function collide(piece) {
+      ensureBoard();
+      if (!piece || !isValidMatrix(piece.matrix)) return true;
+
+      for (let y = 0; y < piece.matrix.length; y++) {
+        for (let x = 0; x < piece.matrix[y].length; x++) {
+          if (!piece.matrix[y][x]) continue;
+
+          const bx = piece.x + x;
+          const by = piece.y + y;
+
+          if (bx < 0 || bx >= COLS || by >= ROWS) return true;
+          if (by >= 0 && board[by] && board[by][bx]) return true;
+        }
+      }
+
+      return false;
+    }
+
+    function merge(piece) {
+      ensureBoard();
+      if (!piece || !isValidMatrix(piece.matrix)) return;
+
+      for (let y = 0; y < piece.matrix.length; y++) {
+        for (let x = 0; x < piece.matrix[y].length; x++) {
+          const value = piece.matrix[y][x];
+          const bx = piece.x + x;
+          const by = piece.y + y;
+
+          if (value && by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
+            board[by][bx] = value;
+          }
+        }
+      }
+    }
+
+    function findClearCells() {
+      ensureBoard();
+      const clear = new Set();
+
+      function addLine(cells) {
+        for (const [x, y] of cells) {
+          if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
+            clear.add(`${x},${y}`);
+          }
+        }
+      }
+
+      // 横方向：連続した数字の合計7、または 7,7,7
+      for (let y = 0; y < ROWS; y++) {
+        for (let start = 0; start < COLS; start++) {
+          if (!board[y][start]) continue;
+
+          let sum = 0;
+          const cells = [];
+
+          for (let x = start; x < COLS; x++) {
+            const v = board[y][x];
+            if (!v) break;
+
+            sum += v;
+            cells.push([x, y]);
+
+            if (sum === 7 && cells.length >= 2) addLine(cells);
+            if (sum >= 7) break;
+          }
+
+          if (
+            start + 2 < COLS &&
+            board[y][start] === 7 &&
+            board[y][start + 1] === 7 &&
+            board[y][start + 2] === 7
+          ) {
+            addLine([[start, y], [start + 1, y], [start + 2, y]]);
+          }
+        }
+      }
+
+      // 縦方向：連続した数字の合計7、または 7,7,7
+      for (let x = 0; x < COLS; x++) {
+        for (let start = 0; start < ROWS; start++) {
+          if (!board[start][x]) continue;
+
+          let sum = 0;
+          const cells = [];
+
+          for (let y = start; y < ROWS; y++) {
+            const v = board[y][x];
+            if (!v) break;
+
+            sum += v;
+            cells.push([x, y]);
+
+            if (sum === 7 && cells.length >= 2) addLine(cells);
+            if (sum >= 7) break;
+          }
+
+          if (
+            start + 2 < ROWS &&
+            board[start][x] === 7 &&
+            board[start + 1][x] === 7 &&
+            board[start + 2][x] === 7
+          ) {
+            addLine([[x, start], [x, start + 1], [x, start + 2]]);
+          }
+        }
+      }
+
+      return clear;
+    }
+
+    function clearMatches() {
+      ensureBoard();
+      let totalCleared = 0;
+      let chain = 0;
+
+      while (true) {
+        const clear = findClearCells();
+        if (clear.size === 0) break;
+
+        for (const key of clear) {
+          const [x, y] = key.split(",").map(Number);
+          if (board[y] && typeof board[y][x] !== "undefined") {
+            board[y][x] = 0;
+          }
+        }
+
+        applyGravity();
+        totalCleared += clear.size;
+        chain++;
+      }
+
+      if (totalCleared > 0) {
+        score += totalCleared * 10 * Math.max(1, chain);
+        scoreEl.textContent = score;
+      }
+    }
+
+    function applyGravity() {
+      ensureBoard();
+
+      for (let x = 0; x < COLS; x++) {
+        const stack = [];
+
+        for (let y = ROWS - 1; y >= 0; y--) {
+          if (board[y][x]) stack.push(board[y][x]);
+        }
+
+        for (let y = ROWS - 1; y >= 0; y--) {
+          board[y][x] = stack[ROWS - 1 - y] || 0;
+        }
+      }
+    }
+
+    function spawnPiece() {
+      current = createPiece();
+      if (collide(current)) {
+        gameOver();
+      }
+    }
+
+    function drop() {
+      if (!gameRunning || !current) return;
+
+      current.y++;
+      if (collide(current)) {
+        current.y--;
+        merge(current);
+        clearMatches();
+        spawnPiece();
+      }
+      dropCounter = 0;
+    }
+
+    function hardDrop() {
+      if (!gameRunning || !current) return;
+
+      while (!collide(current)) {
+        current.y++;
+      }
+      current.y--;
+      merge(current);
+      clearMatches();
+      spawnPiece();
+      dropCounter = 0;
+    }
+
+    function move(dir) {
+      if (!gameRunning || !current) return;
+
+      current.x += dir;
+      if (collide(current)) current.x -= dir;
+    }
+
+    function rotatePiece() {
+      if (!gameRunning || !current || !isValidMatrix(current.matrix)) return;
+
+      const oldMatrix = current.matrix.map(row => row.slice());
+      const oldX = current.x;
+      current.matrix = rotate(current.matrix);
+
+      if (collide(current)) {
+        current.x++;
+        if (collide(current)) {
+          current.x -= 2;
+          if (collide(current)) {
+            current.matrix = oldMatrix;
+            current.x = oldX;
+          }
+        }
+      }
+    }
+
+    function drawCell(x, y, value) {
+      if (!value || x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+
+      const px = x * CELL;
+      const py = y * CELL;
+
+      ctx.fillStyle = colors[value] || "#ffffff";
+      ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
+
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(px + 2, py + 2, CELL - 4, 6);
+
+      ctx.fillStyle = "#111";
+      ctx.font = "bold 17px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(value), px + CELL / 2, py + CELL / 2 + 1);
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = "rgba(255,255,255,0.055)";
+      ctx.lineWidth = 1;
+
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * CELL, 0);
+        ctx.lineTo(x * CELL, ROWS * CELL);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * CELL);
+        ctx.lineTo(COLS * CELL, y * CELL);
+        ctx.stroke();
+      }
+    }
+
+    function draw() {
+      ensureBoard();
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#090912";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          if (board[y][x]) drawCell(x, y, board[y][x]);
+        }
+      }
+
+      if (current && isValidMatrix(current.matrix)) {
+        for (let y = 0; y < current.matrix.length; y++) {
+          for (let x = 0; x < current.matrix[y].length; x++) {
+            const value = current.matrix[y][x];
+            if (value) drawCell(current.x + x, current.y + y, value);
+          }
+        }
+      }
+    }
+
+    function update(time = 0) {
+      if (!gameRunning) return;
+
+      const delta = time - lastTime;
+      lastTime = time;
+      dropCounter += delta;
+
+      if (dropCounter > dropInterval) drop();
+      draw();
+      animationId = requestAnimationFrame(update);
+    }
+
+    function startGame() {
+      if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+
+      board = createBoard();
+      current = null;
+      score = 0;
+      scoreEl.textContent = score;
+      dropCounter = 0;
+      lastTime = performance.now();
+      dropInterval = 650;
+      gameRunning = true;
+      overlay.classList.add("hidden");
+      spawnPiece();
+      draw();
+      animationId = requestAnimationFrame(update);
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      current = null;
+
+      if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+
+      overlay.classList.remove("hidden");
+      overlay.querySelector("h1").textContent = "GAME OVER";
+      overlay.querySelector("p").innerHTML = `SCORE：${score}<br>もう一度プレイしますか？`;
+      startButton.textContent = "RESTART";
+      draw();
+    }
+
+    function runTests() {
+      const oldBoard = board;
+      const oldScore = score;
+      const oldCurrent = current;
+
+      console.assert(isValidBoard(createBoard()), "createBoard should create a valid 10x20 board");
+      console.assert(JSON.stringify(rotate([[1, 2, 3]])) === JSON.stringify([[1], [2], [3]]), "rotate should rotate a 1x3 matrix");
+      console.assert(JSON.stringify(rotate([[1, 0], [1, 1]])) === JSON.stringify([[1, 1], [1, 0]]), "rotate should rotate a 2x2 matrix");
+
+      const testPiece = createPiece();
+      const values = testPiece.matrix.flat().filter(Boolean);
+      console.assert(values.length > 0, "createPiece should create occupied cells");
+      console.assert(values.every(v => v >= 1 && v <= 7), "each occupied cell should have a random value from 1 to 7");
+      console.assert(new Set(values).size >= 2, "one falling tetromino should contain at least 2 different numbers");
+
+      for (let i = 0; i < 30; i++) {
+        const piece = createPiece();
+        const pieceValues = piece.matrix.flat().filter(Boolean);
+        console.assert(pieceValues.every(v => v >= 1 && v <= 7), "generated piece values should stay between 1 and 7");
+        console.assert(new Set(pieceValues).size >= 2, "generated piece should not be all the same number");
+      }
+
+      board = createBoard();
+      board[19][0] = 3;
+      board[19][1] = 4;
+      let clear = findClearCells();
+      console.assert(clear.has("0,19") && clear.has("1,19"), "3+4 horizontally should clear");
+
+      board = createBoard();
+      board[19][0] = 1;
+      board[19][1] = 2;
+      board[19][2] = 4;
+      clear = findClearCells();
+      console.assert(clear.has("0,19") && clear.has("1,19") && clear.has("2,19"), "1+2+4 horizontally should clear");
+
+      board = createBoard();
+      board[19][0] = 6;
+      board[19][1] = 1;
+      clear = findClearCells();
+      console.assert(clear.has("0,19") && clear.has("1,19"), "6+1 horizontally should clear");
+
+      board = createBoard();
+      board[18][0] = 2;
+      board[19][0] = 5;
+      clear = findClearCells();
+      console.assert(clear.has("0,18") && clear.has("0,19"), "2+5 vertically should clear");
+
+      board = createBoard();
+      board[19][0] = 7;
+      clear = findClearCells();
+      console.assert(clear.size === 0, "single 7 should not clear");
+
+      board = createBoard();
+      board[19][0] = 7;
+      board[19][1] = 7;
+      board[19][2] = 7;
+      clear = findClearCells();
+      console.assert(clear.has("0,19") && clear.has("1,19") && clear.has("2,19"), "7,7,7 horizontally should clear");
+
+      board = createBoard();
+      board[17][0] = 7;
+      board[18][0] = 7;
+      board[19][0] = 7;
+      clear = findClearCells();
+      console.assert(clear.has("0,17") && clear.has("0,18") && clear.has("0,19"), "7,7,7 vertically should clear");
+
+      board = oldBoard;
+      score = oldScore;
+      current = oldCurrent;
+      console.info("777 Tetris tests finished");
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (!gameRunning) return;
+
+      if (e.key === "ArrowLeft") move(-1);
+      if (e.key === "ArrowRight") move(1);
+      if (e.key === "ArrowDown") drop();
+      if (e.key === "ArrowUp") rotatePiece();
+      if (e.code === "Space") {
+        e.preventDefault();
+        hardDrop();
+      }
+
+      draw();
+    });
+
+    startButton.addEventListener("click", () => {
+      overlay.querySelector("h1").textContent = "777 TETRIS";
+      overlay.querySelector("p").innerHTML = "1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>7だけは3つ並べると消えます。";
+      startButton.textContent = "START";
+      startGame();
+    });
+
+    runTests();
+    draw();
+  </script>
+</body>
+</html>
