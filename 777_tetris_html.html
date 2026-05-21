@@ -10,12 +10,15 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      overscroll-behavior: none;
       touch-action: none;
       -webkit-text-size-adjust: 100%;
     }
     body {
       width: 100%;
       height: 100%;
+      height: 100dvh;
+      height: 100svh;
       margin: 0;
       min-height: 100vh;
       min-height: 100dvh;
@@ -44,7 +47,11 @@
       border-radius: 20px;
       background: rgba(10,10,22,0.72);
       box-shadow: 0 20px 80px rgba(0,0,0,0.45);
+      max-height: 100dvh;
+      max-height: 100svh;
+      overflow: hidden;
       touch-action: none;
+      overscroll-behavior: none;
     }
     canvas {
       display: block;
@@ -115,7 +122,7 @@
       border-radius: 16px;
       font-size: 18px;
       box-shadow: none;
-      touch-action: manipulation;
+      touch-action: none;
       -webkit-tap-highlight-color: transparent;
     }
     .mobile-button.wide {
@@ -384,11 +391,15 @@
       return (isiPadLike || hasTouchPoints || hasCoarsePointer) ? "touch" : "pc";
     }
 
-    function applyInputMode() {
-      inputMode = detectInputMode();
+    function applyInputMode(forceMode = null) {
+      inputMode = forceMode || detectInputMode();
       document.body.classList.toggle("device-touch", inputMode === "touch");
       document.body.classList.toggle("device-pc", inputMode === "pc");
       deviceBadge.textContent = inputMode === "touch" ? "TOUCH MODE" : "PC MODE";
+    }
+
+    function forceTouchMode() {
+      if (inputMode !== "touch") applyInputMode("touch");
     }
 
     function isTouchMode() {
@@ -718,6 +729,7 @@
 
       function run(e) {
         if (e) {
+          forceTouchMode();
           e.preventDefault();
           e.stopPropagation();
         }
@@ -727,7 +739,7 @@
         if (now - lastHandledAt < 120) return;
         lastHandledAt = now;
 
-        if (isTouchMode()) handleTouchAction(button.dataset.action);
+        handleTouchAction(button.dataset.action);
       }
 
       button.addEventListener("pointerdown", run, { passive: false });
@@ -755,8 +767,8 @@
       }
 
       function start(e) {
-        if (!isTouchMode()) return;
         if (e) {
+          forceTouchMode();
           e.preventDefault();
           e.stopPropagation();
         }
@@ -767,8 +779,8 @@
       }
 
       function end(e) {
-        if (!isTouchMode()) return;
         if (e) {
+          forceTouchMode();
           e.preventDefault();
           e.stopPropagation();
         }
@@ -802,7 +814,13 @@
 
       target.addEventListener("pointerdown", start, { passive: false });
       target.addEventListener("pointerup", end, { passive: false });
+      target.addEventListener("pointercancel", end, { passive: false });
       target.addEventListener("touchstart", start, { passive: false });
+      target.addEventListener("touchmove", (e) => {
+        forceTouchMode();
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
       target.addEventListener("touchend", end, { passive: false });
     }
     function gameOver() {
@@ -833,6 +851,10 @@
       console.assert(typeof bindTouchButton === "function", "touch button binder should exist");
       console.assert(typeof bindCanvasGestureControls === "function", "canvas gesture controls binder should exist");
       console.assert(["pc", "touch"].includes(detectInputMode()), "input mode should be pc or touch");
+      const beforeMode = inputMode;
+      forceTouchMode();
+      console.assert(inputMode === "touch", "forceTouchMode should switch to touch mode");
+      inputMode = beforeMode;
       resolving = true;
       pendingResolveQueue = [];
       const queuedCells = new Set(["0,19", "1,19"]);
@@ -867,13 +889,26 @@
     musicButton.addEventListener("click", toggleMusic);
     document.querySelectorAll(".mobile-button").forEach(bindTouchButton);
     bindCanvasGestureControls(canvas);
+    window.addEventListener("touchstart", (e) => {
+      if (e.target.closest(".game-wrap")) {
+        forceTouchMode();
+        e.preventDefault();
+      }
+    }, { passive: false });
+
     window.addEventListener("touchmove", (e) => {
-      if (gameRunning && isTouchMode()) e.preventDefault();
+      if (e.target.closest(".game-wrap") || (gameRunning && isTouchMode())) {
+        e.preventDefault();
+      }
     }, { passive: false });
 
     window.addEventListener("wheel", (e) => {
       if (gameRunning && isTouchMode()) e.preventDefault();
     }, { passive: false });
+
+    window.addEventListener("scroll", () => {
+      if (isTouchMode()) window.scrollTo(0, 0);
+    }, { passive: true });
 
     window.addEventListener("contextmenu", (e) => {
       // iPad / Brave で長押しメニューが出るのを抑える。
@@ -892,8 +927,8 @@
     });
 
     applyInputMode();
-    window.addEventListener("resize", applyInputMode);
-    window.addEventListener("orientationchange", applyInputMode);
+    window.addEventListener("resize", () => applyInputMode(inputMode === "touch" ? "touch" : null));
+    window.addEventListener("orientationchange", () => applyInputMode(inputMode === "touch" ? "touch" : null));
     runTests();
     draw();
   </script>
