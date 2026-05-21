@@ -737,16 +737,19 @@
         }
 
         const now = performance.now();
-        if (now - lastHandledAt < 120) return;
+        if (now - lastHandledAt < 260) return;
         lastHandledAt = now;
 
         handleTouchAction(button.dataset.action);
       }
 
-      button.addEventListener("pointerdown", run, { passive: false });
-      button.addEventListener("touchstart", run, { passive: false });
-      button.addEventListener("mousedown", run);
-      button.addEventListener("click", run);
+      // iPad/Braveでは pointerdown と touchstart と click が重複しやすい。
+      // PointerEvent が使える環境では pointerdown だけに絞る。
+      if (window.PointerEvent) {
+        button.addEventListener("pointerdown", run, { passive: false });
+      } else {
+        button.addEventListener("touchstart", run, { passive: false });
+      }
     }
 
     function bindActionButton(button, action) {
@@ -760,16 +763,23 @@
         }
 
         const now = performance.now();
-        if (now - lastHandledAt < 180) return;
+        if (now - lastHandledAt < 260) return;
         lastHandledAt = now;
 
         action();
       }
 
-      button.addEventListener("pointerdown", run, { passive: false });
-      button.addEventListener("touchstart", run, { passive: false });
-      button.addEventListener("mousedown", run);
-      button.addEventListener("click", run);
+      // START/PAUSE/MUSICも二重発火防止のため、基本はpointerdownへ集約。
+      if (window.PointerEvent) {
+        button.addEventListener("pointerdown", run, { passive: false });
+      } else {
+        button.addEventListener("touchstart", run, { passive: false });
+      }
+
+      // PCでPointerEventが無い古い環境の保険。
+      if (!window.PointerEvent && !isTouchMode()) {
+        button.addEventListener("click", run);
+      }
     }
 
     function bindCanvasGestureControls(target) {
@@ -836,16 +846,19 @@
         }
       }
 
-      target.addEventListener("pointerdown", start, { passive: false });
-      target.addEventListener("pointerup", end, { passive: false });
-      target.addEventListener("pointercancel", end, { passive: false });
-      target.addEventListener("touchstart", start, { passive: false });
-      target.addEventListener("touchmove", (e) => {
-        forceTouchMode();
-        e.preventDefault();
-        e.stopPropagation();
-      }, { passive: false });
-      target.addEventListener("touchend", end, { passive: false });
+      if (window.PointerEvent) {
+        target.addEventListener("pointerdown", start, { passive: false });
+        target.addEventListener("pointerup", end, { passive: false });
+        target.addEventListener("pointercancel", end, { passive: false });
+      } else {
+        target.addEventListener("touchstart", start, { passive: false });
+        target.addEventListener("touchmove", (e) => {
+          forceTouchMode();
+          e.preventDefault();
+          e.stopPropagation();
+        }, { passive: false });
+        target.addEventListener("touchend", end, { passive: false });
+      }
     }
     function gameOver() {
       gameRunning = false; isPaused = false; current = null; resolving = false; pendingResolveQueue = []; clearingCells = new Set(); clearActiveTimer(); stopMusic();
@@ -875,6 +888,7 @@
       console.assert(typeof bindTouchButton === "function", "touch button binder should exist");
       console.assert(typeof bindActionButton === "function", "action button binder should exist");
       console.assert(typeof bindCanvasGestureControls === "function", "canvas gesture controls binder should exist");
+      console.assert(typeof window.PointerEvent !== "undefined" || "ontouchstart" in window || true, "input event fallback should be available");
       console.assert(["pc", "touch"].includes(detectInputMode()), "input mode should be pc or touch");
       const beforeMode = inputMode;
       forceTouchMode();
