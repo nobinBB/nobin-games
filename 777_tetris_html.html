@@ -327,6 +327,7 @@
       <div id="deviceBadge" class="device-badge">DEVICE CHECK</div>
       <div class="score-box"><div class="score-label">SCORE</div><div id="score" class="score">0</div></div>
       <div class="score-box"><div class="score-label">SPEED</div><div id="speed" class="score">1</div></div>
+      <div class="score-box"><div class="score-label">BEST</div><div id="bestScore" class="score">0</div></div>
       <button id="pauseButton" class="side-control" disabled>PAUSE</button>
       <button id="musicButton" class="side-control">MUSIC ON</button>
       <div class="help">
@@ -360,6 +361,7 @@
     const ctx = canvas.getContext("2d");
     const scoreEl = document.getElementById("score");
     const speedEl = document.getElementById("speed");
+    const bestScoreEl = document.getElementById("bestScore");
     const overlay = document.getElementById("overlay");
     const startButton = document.getElementById("startButton");
     const pauseButton = document.getElementById("pauseButton");
@@ -375,10 +377,12 @@
     const SPEED_UP_AMOUNT = 35;
     const CLEAR_DELAY = 420;
     const CHAIN_DELAY = 120;
+    const BEST_SCORE_KEY = "777-tetris-best-score";
 
     let board = createBoard();
     let current = null;
     let score = 0;
+    let bestScore = loadBestScore();
     let gameRunning = false;
     let isPaused = false;
     let resolving = false;
@@ -417,6 +421,27 @@
       [[1, 0, 0], [1, 1, 1]], [[0, 0, 1], [1, 1, 1]],
       [[1, 1, 0], [0, 1, 1]], [[0, 1, 1], [1, 1, 0]]
     ];
+
+    function loadBestScore() {
+      try {
+        const raw = localStorage.getItem(BEST_SCORE_KEY);
+        const value = Number.parseInt(raw || "0", 10);
+        return Number.isFinite(value) ? value : 0;
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    function saveBestScore() {
+      if (score <= bestScore) return;
+      bestScore = score;
+      try {
+        localStorage.setItem(BEST_SCORE_KEY, String(bestScore));
+      } catch (error) {
+        // localStorage が使えない環境でもゲーム自体は止めない。
+      }
+      bestScoreEl.textContent = bestScore;
+    }
 
     function detectInputMode() {
       const hasTouchPoints = navigator.maxTouchPoints && navigator.maxTouchPoints > 0;
@@ -559,7 +584,13 @@
       return groupsToCellSet(findClearGroups());
     }
 
-    function updateScore(totalCleared, chain) { if (totalCleared > 0) { score += totalCleared * 10 * Math.max(1, chain); scoreEl.textContent = score; } }
+    function updateScore(totalCleared, chain) {
+      if (totalCleared > 0) {
+        score += totalCleared * 10 * Math.max(1, chain);
+        scoreEl.textContent = score;
+        saveBestScore();
+      }
+    }
     function clearCellsNow(clear) { for (const key of clear) { const [x, y] = key.split(",").map(Number); if (board[y] && typeof board[y][x] !== "undefined") board[y][x] = 0; } }
     function applyGravity() {
       ensureBoard();
@@ -759,7 +790,7 @@
       clearActiveTimer(); stopMusic();
       board = createBoard(); current = null; score = 0; gameRunning = false; isPaused = false; resolving = false; pendingResolveQueue = []; clearingCells = new Set();
       dropCounter = 0; lastTime = 0; dropInterval = START_DROP_INTERVAL; lockedPieceCount = 0; speedLevel = 1;
-      scoreEl.textContent = score; speedEl.textContent = speedLevel; pauseButton.textContent = "PAUSE"; pauseButton.disabled = true; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
+      scoreEl.textContent = score; speedEl.textContent = speedLevel; bestScoreEl.textContent = bestScore; pauseButton.textContent = "PAUSE"; pauseButton.disabled = true; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
     }
     function startGame() {
       if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
@@ -878,9 +909,10 @@
       let startX = 0;
       let startY = 0;
       let startTime = 0;
-      const SWIPE_THRESHOLD = 26;
-      const TAP_MAX_MOVE = 12;
-      const TAP_MAX_TIME = 260;
+      const SWIPE_THRESHOLD = 28;
+      const TAP_MAX_MOVE = 34;
+      const TAP_MAX_TIME = 620;
+      let pointerStarted = false;
 
       function getPoint(e) {
         if (e.changedTouches && e.changedTouches.length > 0) {
@@ -902,6 +934,7 @@
         startX = p.x;
         startY = p.y;
         startTime = performance.now();
+        pointerStarted = true;
       }
 
       function end(e) {
@@ -910,7 +943,8 @@
           e.preventDefault();
           e.stopPropagation();
         }
-        if (!gameRunning || isPaused) return;
+        if (!gameRunning || isPaused || !pointerStarted) return;
+        pointerStarted = false;
 
         const p = getPoint(e);
         const dx = p.x - startX;
@@ -939,9 +973,17 @@
       }
 
       if (window.PointerEvent) {
-        target.addEventListener("pointerdown", start, { passive: false });
+        target.addEventListener("pointerdown", (e) => {
+          target.setPointerCapture?.(e.pointerId);
+          start(e);
+        }, { passive: false });
+        target.addEventListener("pointermove", (e) => {
+          forceTouchMode();
+          e.preventDefault();
+          e.stopPropagation();
+        }, { passive: false });
         target.addEventListener("pointerup", end, { passive: false });
-        target.addEventListener("pointercancel", end, { passive: false });
+        target.addEventListener("pointercancel", () => { pointerStarted = false; }, { passive: false });
       } else {
         target.addEventListener("touchstart", start, { passive: false });
         target.addEventListener("touchmove", (e) => {
@@ -950,17 +992,18 @@
           e.stopPropagation();
         }, { passive: false });
         target.addEventListener("touchend", end, { passive: false });
+        target.addEventListener("touchcancel", () => { pointerStarted = false; }, { passive: false });
       }
     }
     function gameOver() {
-      gameRunning = false; isPaused = false; current = null; resolving = false; pendingResolveQueue = []; clearingCells = new Set(); clearActiveTimer(); stopMusic();
+      gameRunning = false; isPaused = false; current = null; resolving = false; pendingResolveQueue = []; clearingCells = new Set(); clearActiveTimer(); stopMusic(); saveBestScore();
       if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
       pauseButton.textContent = "PAUSE"; pauseButton.disabled = true;
-      overlay.classList.remove("hidden"); overlay.querySelector("h1").textContent = "GAME OVER"; overlay.querySelector("p").innerHTML = `SCORE：${score}<br>もう一度プレイしますか？`; startButton.textContent = "RESTART"; draw();
+      overlay.classList.remove("hidden"); overlay.querySelector("h1").textContent = "GAME OVER"; overlay.querySelector("p").innerHTML = `SCORE：${score}<br>BEST：${bestScore}<br>もう一度プレイしますか？`; startButton.textContent = "RESTART"; draw();
     }
 
     function runTests() {
-      const oldBoard = board, oldScore = score, oldCurrent = current, oldGameRunning = gameRunning, oldIsPaused = isPaused, oldResolving = resolving;
+      const oldBoard = board, oldScore = score, oldBestScore = bestScore, oldCurrent = current, oldGameRunning = gameRunning, oldIsPaused = isPaused, oldResolving = resolving;
       const oldPendingResolveQueue = pendingResolveQueue.slice();
       const oldLockedPieceCount = lockedPieceCount, oldSpeedLevel = speedLevel, oldDropInterval = dropInterval, oldDropCounter = dropCounter, oldMusicEnabled = musicEnabled;
       console.assert(isValidBoard(createBoard()), "createBoard should create a valid 10x20 board");
@@ -980,6 +1023,12 @@
       console.assert(typeof bindTouchButton === "function", "touch button binder should exist");
       console.assert(typeof bindActionButton === "function", "action button binder should exist");
       console.assert(typeof bindCanvasGestureControls === "function", "canvas gesture controls binder should exist");
+      const savedBest = bestScore;
+      score = savedBest + 10;
+      saveBestScore();
+      console.assert(bestScore === score, "best score should update when score exceeds bestScore");
+      bestScore = savedBest;
+      bestScoreEl.textContent = bestScore;
       console.assert(typeof window.PointerEvent !== "undefined" || "ontouchstart" in window || true, "input event fallback should be available");
       console.assert(["pc", "touch"].includes(detectInputMode()), "input mode should be pc or touch");
       const beforeMode = inputMode;
@@ -995,8 +1044,8 @@
       resolving = false;
       pendingResolveQueue = [];
       musicEnabled = true; toggleMusic(); console.assert(musicEnabled === false, "music toggle off"); toggleMusic(); console.assert(musicEnabled === true, "music toggle on"); stopMusic();
-      board = oldBoard; score = oldScore; current = oldCurrent; gameRunning = oldGameRunning; isPaused = oldIsPaused; resolving = oldResolving; pendingResolveQueue = oldPendingResolveQueue; lockedPieceCount = oldLockedPieceCount; speedLevel = oldSpeedLevel; dropInterval = oldDropInterval; dropCounter = oldDropCounter; musicEnabled = oldMusicEnabled;
-      clearActiveTimer(); stopMusic(); scoreEl.textContent = score; speedEl.textContent = speedLevel; pauseButton.textContent = isPaused ? "RESUME" : "PAUSE"; pauseButton.disabled = !gameRunning; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
+      board = oldBoard; score = oldScore; bestScore = oldBestScore; current = oldCurrent; gameRunning = oldGameRunning; isPaused = oldIsPaused; resolving = oldResolving; pendingResolveQueue = oldPendingResolveQueue; lockedPieceCount = oldLockedPieceCount; speedLevel = oldSpeedLevel; dropInterval = oldDropInterval; dropCounter = oldDropCounter; musicEnabled = oldMusicEnabled;
+      clearActiveTimer(); stopMusic(); scoreEl.textContent = score; speedEl.textContent = speedLevel; bestScoreEl.textContent = bestScore; pauseButton.textContent = isPaused ? "RESUME" : "PAUSE"; pauseButton.disabled = !gameRunning; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
       console.info("777 Tetris tests finished");
     }
 
