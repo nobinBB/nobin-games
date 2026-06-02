@@ -85,6 +85,89 @@
     }
     .score-label { color: #9b6fb2; font-size: 13px; font-weight: 900; }
     .score { font-size: 34px; font-weight: 900; color: #ff73b7; }
+    .ranking-box {
+      padding: 12px;
+    }
+    .ranking-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .ranking-list {
+      margin: 0;
+      padding-left: 24px;
+      color: #5a3b5d;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.55;
+    }
+    .ranking-list li {
+      padding: 1px 0;
+      white-space: nowrap;
+    }
+    .ranking-list .rank-name {
+      display: inline-block;
+      min-width: 44px;
+      color: #ff5fa2;
+      letter-spacing: 0.04em;
+    }
+    .ranking-list .rank-score {
+      color: #6a4b75;
+    }
+    .name-entry {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.62);
+      border: 2px solid rgba(255,255,255,0.9);
+    }
+    .name-entry label {
+      color: #77577d;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .name-entry input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid rgba(255, 175, 216, 0.65);
+      border-radius: 14px;
+      color: #5a3b5d;
+      background: #fff;
+      font: 900 20px/1 system-ui, sans-serif;
+      letter-spacing: 0.16em;
+      text-align: center;
+      text-transform: uppercase;
+      outline: none;
+    }
+    .name-entry input:focus {
+      border-color: #ff73b7;
+      box-shadow: 0 0 0 4px rgba(255, 115, 183, 0.18);
+    }
+    .name-entry .name-help {
+      min-height: 16px;
+      color: #d4528d;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .panel-ranking {
+      margin: 14px 0 0;
+      padding: 12px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.58);
+      color: #77577d;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .panel-ranking ol {
+      margin: 8px 0 0;
+      padding-left: 22px;
+      line-height: 1.65;
+    }
     .side-control {
       width: 100%;
       margin-bottom: 12px;
@@ -226,6 +309,16 @@
         margin-bottom: 0;
         padding: 10px 12px;
       }
+      .ranking-box {
+        grid-column: 1 / -1;
+      }
+      .ranking-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0 18px;
+        font-size: 11px;
+        line-height: 1.45;
+      }
       .score {
         font-size: 26px;
       }
@@ -328,6 +421,12 @@
       <div class="score-box"><div class="score-label">SCORE</div><div id="score" class="score">0</div></div>
       <div class="score-box"><div class="score-label">SPEED</div><div id="speed" class="score">1</div></div>
       <div class="score-box"><div class="score-label">BEST</div><div id="bestScore" class="score">0</div></div>
+      <div class="score-box ranking-box">
+        <div class="ranking-title">
+          <div class="score-label">RANKING TOP 10</div>
+        </div>
+        <ol id="rankingList" class="ranking-list"></ol>
+      </div>
       <button id="pauseButton" class="side-control" disabled>PAUSE</button>
       <button id="musicButton" class="side-control">MUSIC ON</button>
       <div class="help">
@@ -362,6 +461,7 @@
     const scoreEl = document.getElementById("score");
     const speedEl = document.getElementById("speed");
     const bestScoreEl = document.getElementById("bestScore");
+    const rankingListEl = document.getElementById("rankingList");
     const overlay = document.getElementById("overlay");
     const startButton = document.getElementById("startButton");
     const pauseButton = document.getElementById("pauseButton");
@@ -378,11 +478,15 @@
     const CLEAR_DELAY = 420;
     const CHAIN_DELAY = 120;
     const BEST_SCORE_KEY = "777-tetris-best-score";
+    const RANKING_KEY = "777-tetris-ranking-v1";
+    const RANKING_LIMIT = 10;
+    const PLAYER_NAME_PATTERN = /^[A-Za-z]{5}$/;
 
     let board = createBoard();
     let current = null;
     let score = 0;
     let bestScore = loadBestScore();
+    let ranking = loadRanking();
     let gameRunning = false;
     let isPaused = false;
     let resolving = false;
@@ -441,6 +545,142 @@
         // localStorage が使えない環境でもゲーム自体は止めない。
       }
       bestScoreEl.textContent = bestScore;
+    }
+
+    function normalizeRankingEntry(entry) {
+      const name = String(entry && entry.name ? entry.name : "").toUpperCase();
+      const value = Number.parseInt(entry && entry.score, 10);
+      const date = String(entry && entry.date ? entry.date : "");
+      if (!PLAYER_NAME_PATTERN.test(name) || !Number.isFinite(value) || value < 0) return null;
+      return { name, score: value, date };
+    }
+
+    function loadRanking() {
+      try {
+        const raw = localStorage.getItem(RANKING_KEY);
+        const parsed = JSON.parse(raw || "[]");
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(normalizeRankingEntry).filter(Boolean).sort(compareRankingEntries).slice(0, RANKING_LIMIT);
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function compareRankingEntries(a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return String(a.date || "").localeCompare(String(b.date || ""));
+    }
+
+    function saveRanking() {
+      ranking = ranking.map(normalizeRankingEntry).filter(Boolean).sort(compareRankingEntries).slice(0, RANKING_LIMIT);
+      try {
+        localStorage.setItem(RANKING_KEY, JSON.stringify(ranking));
+      } catch (error) {
+        // localStorage が使えない環境でもゲーム自体は止めない。
+      }
+      renderRankingList();
+    }
+
+    function getRankingInsertIndex(targetScore) {
+      if (!Number.isFinite(targetScore) || targetScore <= 0) return -1;
+      const normalized = ranking.map(normalizeRankingEntry).filter(Boolean).sort(compareRankingEntries);
+      if (normalized.length < RANKING_LIMIT) {
+        const index = normalized.findIndex(entry => targetScore > entry.score);
+        return index === -1 ? normalized.length : index;
+      }
+      const index = normalized.findIndex(entry => targetScore > entry.score);
+      return index === -1 ? -1 : index;
+    }
+
+    function isRankingScore(targetScore) {
+      return getRankingInsertIndex(targetScore) !== -1;
+    }
+
+    function addRankingEntry(name, targetScore) {
+      const cleanName = String(name || "").trim().toUpperCase();
+      const cleanScore = Number.parseInt(targetScore, 10);
+      if (!PLAYER_NAME_PATTERN.test(cleanName) || !Number.isFinite(cleanScore) || cleanScore <= 0) return false;
+      ranking.push({ name: cleanName, score: cleanScore, date: new Date().toISOString() });
+      saveRanking();
+      return true;
+    }
+
+    function renderRankingList() {
+      if (!rankingListEl) return;
+      const normalized = ranking.map(normalizeRankingEntry).filter(Boolean).sort(compareRankingEntries).slice(0, RANKING_LIMIT);
+      rankingListEl.innerHTML = "";
+      for (let i = 0; i < RANKING_LIMIT; i++) {
+        const li = document.createElement("li");
+        const entry = normalized[i];
+        if (entry) {
+          li.innerHTML = `<span class="rank-name">${entry.name}</span> <span class="rank-score">${entry.score}</span>`;
+        } else {
+          li.innerHTML = `<span class="rank-name">-----</span> <span class="rank-score">0</span>`;
+        }
+        rankingListEl.appendChild(li);
+      }
+    }
+
+    function createRankingHtml() {
+      const normalized = ranking.map(normalizeRankingEntry).filter(Boolean).sort(compareRankingEntries).slice(0, RANKING_LIMIT);
+      if (normalized.length === 0) return "";
+      const items = normalized.map(entry => `<li><span class="rank-name">${entry.name}</span> <span class="rank-score">${entry.score}</span></li>`).join("");
+      return `<div class="panel-ranking">RANKING TOP 10<ol>${items}</ol></div>`;
+    }
+
+    function showGameOverPanel(messageHtml) {
+      overlay.classList.remove("hidden");
+      overlay.querySelector("h1").textContent = "GAME OVER";
+      overlay.querySelector("p").innerHTML = messageHtml;
+      startButton.textContent = "RESTART";
+      startButton.disabled = false;
+      draw();
+    }
+
+    function showRankingNameEntry(rankIndex) {
+      overlay.classList.remove("hidden");
+      overlay.querySelector("h1").textContent = "RANK IN!";
+      overlay.querySelector("p").innerHTML = `SCORE：${score}<br>${rankIndex + 1}位に入りました。<br>名前を半角ローマ字5文字で登録してください。`;
+      startButton.textContent = "SAVE";
+      startButton.disabled = true;
+
+      const oldEntry = overlay.querySelector(".name-entry");
+      if (oldEntry) oldEntry.remove();
+
+      const entryBox = document.createElement("div");
+      entryBox.className = "name-entry";
+      entryBox.innerHTML = `
+        <label for="rankingNameInput">NAME / 5 LETTERS</label>
+        <input id="rankingNameInput" type="text" inputmode="latin" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="5" placeholder="ABCDE">
+        <div id="rankingNameHelp" class="name-help">A〜Zの半角英字5文字だけ登録できます。</div>
+      `;
+      overlay.querySelector(".panel").insertBefore(entryBox, startButton);
+
+      const input = document.getElementById("rankingNameInput");
+      const help = document.getElementById("rankingNameHelp");
+      const validate = () => {
+        input.value = input.value.replace(/[^A-Za-z]/g, "").slice(0, 5).toUpperCase();
+        const ok = PLAYER_NAME_PATTERN.test(input.value);
+        startButton.disabled = !ok;
+        help.textContent = ok ? "登録できます。" : "A〜Zの半角英字5文字だけ登録できます。";
+      };
+      input.addEventListener("input", validate);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && PLAYER_NAME_PATTERN.test(input.value)) {
+          e.preventDefault();
+          saveCurrentRankingName();
+        }
+      });
+      requestAnimationFrame(() => input.focus());
+    }
+
+    function saveCurrentRankingName() {
+      const input = document.getElementById("rankingNameInput");
+      if (!input || !PLAYER_NAME_PATTERN.test(input.value)) return;
+      addRankingEntry(input.value, score);
+      const entryBox = overlay.querySelector(".name-entry");
+      if (entryBox) entryBox.remove();
+      showGameOverPanel(`SCORE：${score}<br>BEST：${bestScore}<br>ランキングに登録しました。${createRankingHtml()}<br>もう一度プレイしますか？`);
     }
 
     function detectInputMode() {
@@ -790,7 +1030,9 @@
       clearActiveTimer(); stopMusic();
       board = createBoard(); current = null; score = 0; gameRunning = false; isPaused = false; resolving = false; pendingResolveQueue = []; clearingCells = new Set();
       dropCounter = 0; lastTime = 0; dropInterval = START_DROP_INTERVAL; lockedPieceCount = 0; speedLevel = 1;
-      scoreEl.textContent = score; speedEl.textContent = speedLevel; bestScoreEl.textContent = bestScore; pauseButton.textContent = "PAUSE"; pauseButton.disabled = true; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
+      const entryBox = overlay.querySelector(".name-entry");
+      if (entryBox) entryBox.remove();
+      scoreEl.textContent = score; speedEl.textContent = speedLevel; bestScoreEl.textContent = bestScore; renderRankingList(); pauseButton.textContent = "PAUSE"; pauseButton.disabled = true; musicButton.textContent = musicEnabled ? "MUSIC ON" : "MUSIC OFF";
     }
     function startGame() {
       if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
@@ -999,7 +1241,12 @@
       gameRunning = false; isPaused = false; current = null; resolving = false; pendingResolveQueue = []; clearingCells = new Set(); clearActiveTimer(); stopMusic(); saveBestScore();
       if (animationId !== null) { cancelAnimationFrame(animationId); animationId = null; }
       pauseButton.textContent = "PAUSE"; pauseButton.disabled = true;
-      overlay.classList.remove("hidden"); overlay.querySelector("h1").textContent = "GAME OVER"; overlay.querySelector("p").innerHTML = `SCORE：${score}<br>BEST：${bestScore}<br>もう一度プレイしますか？`; startButton.textContent = "RESTART"; draw();
+      const rankIndex = getRankingInsertIndex(score);
+      if (rankIndex !== -1) {
+        showRankingNameEntry(rankIndex);
+      } else {
+        showGameOverPanel(`SCORE：${score}<br>BEST：${bestScore}${createRankingHtml()}<br>もう一度プレイしますか？`);
+      }
     }
 
     function runTests() {
@@ -1027,6 +1274,14 @@
       score = savedBest + 10;
       saveBestScore();
       console.assert(bestScore === score, "best score should update when score exceeds bestScore");
+      const oldRanking = ranking.slice();
+      ranking = [];
+      console.assert(isRankingScore(100), "score should rank when ranking has empty slots");
+      console.assert(addRankingEntry("abcde", 100) === true, "ranking should accept 5 roman letters");
+      console.assert(addRankingEntry("abc1e", 90) === false, "ranking should reject non-roman names");
+      console.assert(ranking[0].name === "ABCDE" && ranking[0].score === 100, "ranking should save uppercase name and score");
+      ranking = oldRanking;
+      saveRanking();
       bestScore = savedBest;
       bestScoreEl.textContent = bestScore;
       console.assert(typeof window.PointerEvent !== "undefined" || "ontouchstart" in window || true, "input event fallback should be available");
@@ -1068,9 +1323,14 @@
     bindActionButton(pauseButton, togglePause);
     bindActionButton(musicButton, toggleMusic);
     bindActionButton(startButton, () => {
+      if (overlay.querySelector(".name-entry")) {
+        saveCurrentRankingName();
+        return;
+      }
       overlay.querySelector("h1").textContent = "777 TETRIS";
       overlay.querySelector("p").innerHTML = "1〜7の数字ブロックを落として、縦横の合計7を作るだけ。<br>7だけは3つ並べると消えます。";
       startButton.textContent = "START";
+      startButton.disabled = false;
       startGame();
     });
     document.querySelectorAll(".mobile-button").forEach(bindTouchButton);
@@ -1115,6 +1375,7 @@
     window.addEventListener("resize", () => applyInputMode(inputMode === "touch" ? "touch" : null));
     window.addEventListener("orientationchange", () => applyInputMode(inputMode === "touch" ? "touch" : null));
     runTests();
+    renderRankingList();
     draw();
   </script>
 </body>
